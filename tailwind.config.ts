@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['Instrument Serif', 'serif'],
+        body: ['Inter', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -56,6 +60,18 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        study: {
+          DEFAULT: "hsl(var(--study))",
+          foreground: "hsl(var(--study-foreground))",
+        },
+        revision: {
+          DEFAULT: "hsl(var(--revision))",
+          foreground: "hsl(var(--revision-foreground))",
+        },
+        exam: {
+          DEFAULT: "hsl(var(--exam))",
+          foreground: "hsl(var(--exam-foreground))",
         },
       },
       borderRadius: {
