@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GraduationCap } from "lucide-react";
-import SubjectForm from "@/components/SubjectForm";
+import UploadForm from "@/components/UploadForm";
 import StudyPlanView from "@/components/StudyPlanView";
 import { Subject, DayPlan, generateStudyPlan } from "@/lib/planGenerator";
+import { toast } from "sonner";
 
 const Index = () => {
   const [plan, setPlan] = useState<DayPlan[] | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleGenerate = (subjects: Subject[]) => {
-    const generated = generateStudyPlan(subjects);
-    setPlan(generated);
+  const handleFilesReady = async (syllabus: File, datesheet: File) => {
+    // TODO: Once Cloud is enabled, parse PDFs via edge function
+    // For now, show a message that Cloud is needed
+    toast.info("PDF parsing requires Lovable Cloud. Enable it to continue!");
   };
 
   return (
@@ -51,7 +54,7 @@ const Index = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <SubjectForm onGenerate={handleGenerate} />
+              <UploadForm onFilesReady={handleFilesReady} isProcessing={isProcessing} />
             </motion.div>
           )}
         </AnimatePresence>
