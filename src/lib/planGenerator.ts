@@ -1,4 +1,4 @@
-import { format, addDays, differenceInDays, isBefore, isSameDay, parseISO } from "date-fns";
+import { format, addDays, differenceInDays, parseISO } from "date-fns";
 
 export interface Subject {
   id: string;
@@ -18,6 +18,8 @@ export interface DayTask {
   type: "study" | "revision" | "exam";
 }
 
+const REVISION_DAYS = 4;
+
 export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
   if (subjects.length === 0) return [];
 
@@ -29,37 +31,18 @@ export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
     (a, b) => parseISO(a.examDate).getTime() - parseISO(b.examDate).getTime()
   );
 
-  const lastExamDate = parseISO(sorted[sorted.length - 1].examDate);
-  const totalDays = differenceInDays(lastExamDate, today) + 1;
-  if (totalDays <= 0) return [];
-
-  // Build the plan
   const planMap = new Map<string, DayTask[]>();
 
   const initDate = (dateStr: string) => {
     if (!planMap.has(dateStr)) planMap.set(dateStr, []);
   };
 
-  // For each subject, distribute chapters across available days
   for (const subject of sorted) {
     const examDate = parseISO(subject.examDate);
     const daysUntilExam = differenceInDays(examDate, today);
     if (daysUntilExam <= 0) continue;
 
-    // Reserve 1 revision day before exam (day before exam)
-    const revisionDate = addDays(examDate, -1);
-    const revisionDateStr = format(revisionDate, "yyyy-MM-dd");
-    initDate(revisionDateStr);
-
-    // Add revision task
-    const existingRevision = planMap.get(revisionDateStr)!;
-    existingRevision.push({
-      subject: subject.name,
-      chapters: [`Revise all ${subject.chapters.length} chapters`],
-      type: "revision",
-    });
-
-    // Add exam day marker
+    // Exam day marker
     const examDateStr = format(examDate, "yyyy-MM-dd");
     initDate(examDateStr);
     planMap.get(examDateStr)!.push({
@@ -68,30 +51,55 @@ export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
       type: "exam",
     });
 
-    // Distribute chapters across study days (today to 2 days before exam)
-    const studyEndDate = addDays(examDate, -2);
-    const studyDays = Math.max(1, differenceInDays(studyEndDate, today) + 1);
-    const chaptersPerDay = Math.ceil(subject.chapters.length / studyDays);
+    // 4-day revision period before exam
+    for (let r = 1; r <= REVISION_DAYS; r++) {
+      const revDate = addDays(examDate, -r);
+      if (differenceInDays(revDate, today) < 0) continue;
+      const revDateStr = format(revDate, "yyyy-MM-dd");
+      initDate(revDateStr);
+      planMap.get(revDateStr)!.push({
+        subject: subject.name,
+        chapters: [`Revision Day ${REVISION_DAYS - r + 1} — Review all chapters`],
+        type: "revision",
+      });
+    }
 
-    let chapterIndex = 0;
-    for (let d = 0; d < studyDays && chapterIndex < subject.chapters.length; d++) {
-      const date = addDays(today, d);
-      const dateStr = format(date, "yyyy-MM-dd");
+    // Study: 1 chapter per day, starting from today, ending before revision period
+    const studyEndDate = addDays(examDate, -(REVISION_DAYS + 1));
+    let currentDay = 0;
+
+    for (let ci = 0; ci < subject.chapters.length; ci++) {
+      let dateCandidate = addDays(today, currentDay);
+
+      // Skip past the study end date — can't fit, stop
+      if (differenceInDays(dateCandidate, studyEndDate) > 0) {
+        // If we run out of days, pack remaining into last available day
+        const lastDateStr = format(studyEndDate, "yyyy-MM-dd");
+        initDate(lastDateStr);
+        const existing = planMap.get(lastDateStr)!;
+        const existingStudy = existing.find(
+          (t) => t.subject === subject.name && t.type === "study"
+        );
+        if (existingStudy) {
+          existingStudy.chapters.push(subject.chapters[ci]);
+        } else {
+          existing.push({
+            subject: subject.name,
+            chapters: [subject.chapters[ci]],
+            type: "study",
+          });
+        }
+        continue;
+      }
+
+      const dateStr = format(dateCandidate, "yyyy-MM-dd");
       initDate(dateStr);
-
-      const dayChapters: string[] = [];
-      for (let c = 0; c < chaptersPerDay && chapterIndex < subject.chapters.length; c++) {
-        dayChapters.push(subject.chapters[chapterIndex]);
-        chapterIndex++;
-      }
-
-      if (dayChapters.length > 0) {
-        planMap.get(dateStr)!.push({
-          subject: subject.name,
-          chapters: dayChapters,
-          type: "study",
-        });
-      }
+      planMap.get(dateStr)!.push({
+        subject: subject.name,
+        chapters: [subject.chapters[ci]],
+        type: "study",
+      });
+      currentDay++;
     }
   }
 
@@ -99,8 +107,7 @@ export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
   const plan: DayPlan[] = [];
   const entries = Array.from(planMap.entries()).sort();
   for (const [date, tasks] of entries) {
-    // Limit to ~3 subjects per day by keeping closest exams
-    plan.push({ date, tasks: tasks.slice(0, 4) });
+    plan.push({ date, tasks });
   }
 
   return plan;
