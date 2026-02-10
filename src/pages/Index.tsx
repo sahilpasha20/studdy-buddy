@@ -11,9 +11,57 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleFilesReady = async (syllabus: File, datesheet: File) => {
-    // TODO: Once Cloud is enabled, parse PDFs via edge function
-    // For now, show a message that Cloud is needed
-    toast.info("PDF parsing requires Lovable Cloud. Enable it to continue!");
+    setIsProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append("syllabus", syllabus);
+      formData.append("datesheet", datesheet);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pdfs`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: "Failed to parse PDFs" }));
+        throw new Error(err.error || "Failed to parse PDFs");
+      }
+
+      const data = await response.json();
+
+      if (!data.subjects || data.subjects.length === 0) {
+        toast.error("Couldn't extract any subjects from your PDFs. Try clearer files.");
+        return;
+      }
+
+      // Add IDs and generate plan
+      const subjects: Subject[] = data.subjects.map((s: any, i: number) => ({
+        id: String(i),
+        name: s.name,
+        chapters: s.chapters,
+        examDate: s.examDate,
+      }));
+
+      const generatedPlan = generateStudyPlan(subjects);
+      if (generatedPlan.length === 0) {
+        toast.error("All exam dates seem to be in the past.");
+        return;
+      }
+
+      setPlan(generatedPlan);
+      toast.success(`Plan generated for ${subjects.length} subjects!`);
+    } catch (err: any) {
+      console.error("Parse error:", err);
+      toast.error(err.message || "Something went wrong parsing your PDFs.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -32,7 +80,7 @@ const Index = () => {
             Study Planner
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Add your subjects, chapters, and exam dates — get a realistic day-by-day study plan instantly.
+            Upload your syllabus and datesheet PDFs — get a realistic day-by-day study plan with 1 chapter per day and 4 days of revision.
           </p>
         </motion.div>
 
