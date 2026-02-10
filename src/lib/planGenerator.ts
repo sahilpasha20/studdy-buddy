@@ -26,23 +26,22 @@ export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Sort subjects by exam date (closest first)
   const sorted = [...subjects].sort(
     (a, b) => parseISO(a.examDate).getTime() - parseISO(b.examDate).getTime()
   );
 
   const planMap = new Map<string, DayTask[]>();
+  const blockedDays = new Set<string>(); // days reserved for revision/exam
 
   const initDate = (dateStr: string) => {
     if (!planMap.has(dateStr)) planMap.set(dateStr, []);
   };
 
+  // First pass: mark exam days and revision days
   for (const subject of sorted) {
     const examDate = parseISO(subject.examDate);
-    const daysUntilExam = differenceInDays(examDate, today);
-    if (daysUntilExam <= 0) continue;
+    if (differenceInDays(examDate, today) <= 0) continue;
 
-    // Exam day marker
     const examDateStr = format(examDate, "yyyy-MM-dd");
     initDate(examDateStr);
     planMap.get(examDateStr)!.push({
@@ -50,8 +49,8 @@ export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
       chapters: ["📝 Exam Day"],
       type: "exam",
     });
+    blockedDays.add(examDateStr);
 
-    // 4-day revision period before exam
     for (let r = 1; r <= REVISION_DAYS; r++) {
       const revDate = addDays(examDate, -r);
       if (differenceInDays(revDate, today) < 0) continue;
@@ -62,53 +61,66 @@ export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
         chapters: [`Revision Day ${REVISION_DAYS - r + 1} — Review all chapters`],
         type: "revision",
       });
+      blockedDays.add(revDateStr);
     }
+  }
 
-    // Study: 1 chapter per day, starting from today, ending before revision period
-    const studyEndDate = addDays(examDate, -(REVISION_DAYS + 1));
-    let currentDay = 0;
+  // Second pass: assign 1 chapter per day across ALL subjects, skipping blocked days
+  // Build a queue of (subject, chapter) ordered by exam urgency
+  const chapterQueue: { subject: string; chapter: string }[] = [];
+  for (const subject of sorted) {
+    const examDate = parseISO(subject.examDate);
+    if (differenceInDays(examDate, today) <= 0) continue;
+    for (const ch of subject.chapters) {
+      chapterQueue.push({ subject: subject.name, chapter: ch });
+    }
+  }
 
-    for (let ci = 0; ci < subject.chapters.length; ci++) {
-      let dateCandidate = addDays(today, currentDay);
+  // Find the last exam date to know our range
+  const lastExam = parseISO(sorted[sorted.length - 1].examDate);
+  const totalDays = differenceInDays(lastExam, today) + 1;
 
-      // Skip past the study end date — can't fit, stop
-      if (differenceInDays(dateCandidate, studyEndDate) > 0) {
-        // If we run out of days, pack remaining into last available day
-        const lastDateStr = format(studyEndDate, "yyyy-MM-dd");
-        initDate(lastDateStr);
-        const existing = planMap.get(lastDateStr)!;
-        const existingStudy = existing.find(
-          (t) => t.subject === subject.name && t.type === "study"
-        );
+  let qi = 0;
+  for (let d = 0; d < totalDays && qi < chapterQueue.length; d++) {
+    const date = addDays(today, d);
+    const dateStr = format(date, "yyyy-MM-dd");
+
+    // Skip days that already have revision or exam
+    if (blockedDays.has(dateStr)) continue;
+
+    const item = chapterQueue[qi];
+    initDate(dateStr);
+    planMap.get(dateStr)!.push({
+      subject: item.subject,
+      chapters: [item.chapter],
+      type: "study",
+    });
+    qi++;
+  }
+
+  // If chapters remain, pack them onto the last available days
+  while (qi < chapterQueue.length) {
+    const item = chapterQueue[qi];
+    // Find last non-blocked day
+    for (let d = totalDays - 1; d >= 0; d--) {
+      const dateStr = format(addDays(today, d), "yyyy-MM-dd");
+      if (!blockedDays.has(dateStr)) {
+        initDate(dateStr);
+        const existing = planMap.get(dateStr)!;
+        const existingStudy = existing.find(t => t.subject === item.subject && t.type === "study");
         if (existingStudy) {
-          existingStudy.chapters.push(subject.chapters[ci]);
+          existingStudy.chapters.push(item.chapter);
         } else {
-          existing.push({
-            subject: subject.name,
-            chapters: [subject.chapters[ci]],
-            type: "study",
-          });
+          existing.push({ subject: item.subject, chapters: [item.chapter], type: "study" });
         }
-        continue;
+        break;
       }
-
-      const dateStr = format(dateCandidate, "yyyy-MM-dd");
-      initDate(dateStr);
-      planMap.get(dateStr)!.push({
-        subject: subject.name,
-        chapters: [subject.chapters[ci]],
-        type: "study",
-      });
-      currentDay++;
     }
+    qi++;
   }
 
-  // Convert map to sorted array
-  const plan: DayPlan[] = [];
-  const entries = Array.from(planMap.entries()).sort();
-  for (const [date, tasks] of entries) {
-    plan.push({ date, tasks });
-  }
-
-  return plan;
+  // Convert to sorted array
+  return Array.from(planMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, tasks]) => ({ date, tasks }));
 }
