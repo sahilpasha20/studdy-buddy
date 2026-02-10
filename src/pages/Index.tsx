@@ -2,11 +2,16 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GraduationCap } from "lucide-react";
 import UploadForm from "@/components/UploadForm";
+import SubjectPicker from "@/components/SubjectPicker";
 import StudyPlanView from "@/components/StudyPlanView";
 import { Subject, DayPlan, generateStudyPlan } from "@/lib/planGenerator";
 import { toast } from "sonner";
 
+type Step = "upload" | "pick" | "plan";
+
 const Index = () => {
+  const [step, setStep] = useState<Step>("upload");
+  const [extractedSubjects, setExtractedSubjects] = useState<Subject[]>([]);
   const [plan, setPlan] = useState<DayPlan[] | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -40,7 +45,6 @@ const Index = () => {
         return;
       }
 
-      // Add IDs and generate plan
       const subjects: Subject[] = data.subjects.map((s: any, i: number) => ({
         id: String(i),
         name: s.name,
@@ -48,14 +52,9 @@ const Index = () => {
         examDate: s.examDate,
       }));
 
-      const generatedPlan = generateStudyPlan(subjects);
-      if (generatedPlan.length === 0) {
-        toast.error("All exam dates seem to be in the past.");
-        return;
-      }
-
-      setPlan(generatedPlan);
-      toast.success(`Plan generated for ${subjects.length} subjects!`);
+      setExtractedSubjects(subjects);
+      setStep("pick");
+      toast.success(`Extracted ${subjects.length} subjects!`);
     } catch (err: any) {
       console.error("Parse error:", err);
       toast.error(err.message || "Something went wrong parsing your PDFs.");
@@ -64,10 +63,26 @@ const Index = () => {
     }
   };
 
+  const handleSubjectsConfirmed = (selected: Subject[]) => {
+    const generatedPlan = generateStudyPlan(selected);
+    if (generatedPlan.length === 0) {
+      toast.error("All exam dates seem to be in the past.");
+      return;
+    }
+    setPlan(generatedPlan);
+    setStep("plan");
+    toast.success(`Plan generated for ${selected.length} subjects!`);
+  };
+
+  const handleReset = () => {
+    setPlan(null);
+    setExtractedSubjects([]);
+    setStep("upload");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 py-12">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -84,16 +99,28 @@ const Index = () => {
           </p>
         </motion.div>
 
-        {/* Content */}
         <AnimatePresence mode="wait">
-          {plan ? (
+          {step === "plan" && plan ? (
             <motion.div
               key="plan"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <StudyPlanView plan={plan} onReset={() => setPlan(null)} />
+              <StudyPlanView plan={plan} onReset={handleReset} />
+            </motion.div>
+          ) : step === "pick" ? (
+            <motion.div
+              key="pick"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <SubjectPicker
+                subjects={extractedSubjects}
+                onConfirm={handleSubjectsConfirmed}
+                onBack={handleReset}
+              />
             </motion.div>
           ) : (
             <motion.div
