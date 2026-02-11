@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { motion } from "framer-motion";
 import { BookOpen, RefreshCw, FileText, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface StudyPlanViewProps {
   plan: DayPlan[];
@@ -37,6 +39,17 @@ const typeConfig = {
 };
 
 const StudyPlanView = ({ plan, onReset }: StudyPlanViewProps) => {
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+
+  const toggleTask = (key: string) => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   const getDateLabel = (dateStr: string) => {
     const date = parseISO(dateStr);
     if (isToday(date)) return "Today";
@@ -91,26 +104,37 @@ const StudyPlanView = ({ plan, onReset }: StudyPlanViewProps) => {
                   {day.tasks.map((task, taskIndex) => {
                     const cfg = typeConfig[task.type];
                     const Icon = cfg.icon;
-                    return (
-                      <div
-                        key={taskIndex}
-                        className={`rounded-lg border ${cfg.border} ${cfg.bg} px-4 py-3`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Icon className={`w-3.5 h-3.5 ${cfg.text}`} />
-                          <span className={`text-sm font-semibold ${cfg.text}`}>
-                            {task.subject}
-                          </span>
-                          <span
-                            className={`text-[10px] uppercase tracking-wider font-medium ${cfg.text} opacity-60`}
-                          >
-                            {cfg.label}
-                          </span>
+                      const taskKey = `${day.date}-${taskIndex}`;
+                      const isDone = checked.has(taskKey);
+                      return (
+                        <div
+                          key={taskIndex}
+                          className={`rounded-lg border ${cfg.border} ${cfg.bg} px-4 py-3 cursor-pointer transition-opacity ${isDone ? "opacity-50" : ""}`}
+                          onClick={() => toggleTask(taskKey)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={isDone}
+                              onCheckedChange={() => toggleTask(taskKey)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-0.5"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Icon className={`w-3.5 h-3.5 ${cfg.text}`} />
+                                <span className={`text-sm font-semibold ${cfg.text} ${isDone ? "line-through" : ""}`}>
+                                  {task.subject}
+                                </span>
+                                <span className={`text-[10px] uppercase tracking-wider font-medium ${cfg.text} opacity-60`}>
+                                  {cfg.label}
+                                </span>
+                              </div>
+                              <div className={`text-sm text-foreground/80 pl-5 ${isDone ? "line-through" : ""}`}>
+                                {task.chapters.join(" · ")}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-sm text-foreground/80 pl-5">
-                          {task.chapters.join(" · ")}
-                        </div>
-                      </div>
                     );
                   })}
                 </div>
