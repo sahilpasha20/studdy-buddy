@@ -59,22 +59,24 @@ const StudyPlanView = ({ plan, onReset }: StudyPlanViewProps) => {
   };
 
   const todayTask = plan.find((d) => isToday(parseISO(d.date)));
+  const [lastFiredMinute, setLastFiredMinute] = useState<string>("");
 
-  const enableReminder = useCallback(async (time: string) => {
-    if (!("Notification" in window)) {
-      toast.error("Your browser doesn't support notifications.");
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      toast.error("Please allow notifications to get study reminders.");
-      return;
-    }
+  const enableReminder = useCallback((time: string) => {
     localStorage.setItem("study-reminder-time", time);
     setReminderTime(time);
     setReminderEnabled(true);
-    toast.success(`Reminder set for ${time} every day! 🔔`);
-  }, []);
+
+    // Show a test reminder immediately
+    if (todayTask) {
+      const task = todayTask.tasks[0];
+      toast("📚 Reminder set!", {
+        description: `You'll be reminded at ${time}. Today: ${task.subject} — ${task.chapters.join(", ")}`,
+        duration: 5000,
+      });
+    } else {
+      toast.success(`Reminder set for ${time} every day! 🔔`);
+    }
+  }, [todayTask]);
 
   const disableReminder = () => {
     localStorage.removeItem("study-reminder-time");
@@ -83,24 +85,27 @@ const StudyPlanView = ({ plan, onReset }: StudyPlanViewProps) => {
     toast.info("Reminder turned off.");
   };
 
-  // Check every minute if it's reminder time
+  // Check every 30s if it's reminder time — use in-app toast
   useEffect(() => {
     if (!reminderEnabled || !reminderTime) return;
 
-    const interval = setInterval(() => {
+    const check = () => {
       const now = new Date();
       const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      if (currentTime === reminderTime && todayTask) {
+      if (currentTime === reminderTime && lastFiredMinute !== currentTime && todayTask) {
+        setLastFiredMinute(currentTime);
         const task = todayTask.tasks[0];
-        new Notification("📚 Time to study!", {
-          body: `Today: ${task.subject} — ${task.chapters.join(", ")}`,
-          icon: "/favicon.ico",
+        toast("📚 Time to study!", {
+          description: `${task.subject} — ${task.chapters.join(", ")}`,
+          duration: 15000,
         });
       }
-    }, 60_000);
+    };
 
+    check(); // check immediately
+    const interval = setInterval(check, 30_000);
     return () => clearInterval(interval);
-  }, [reminderEnabled, reminderTime, todayTask]);
+  }, [reminderEnabled, reminderTime, todayTask, lastFiredMinute]);
 
   const getDateLabel = (dateStr: string) => {
     const date = parseISO(dateStr);
