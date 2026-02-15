@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { motion } from "framer-motion";
@@ -6,11 +6,16 @@ import { BookOpen, RefreshCw, FileText, ArrowLeft, Bell, BellOff } from "lucide-
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
-import { toast } from "sonner";
 
 interface StudyPlanViewProps {
   plan: DayPlan[];
   onReset: () => void;
+  reminder: {
+    reminderTime: string;
+    reminderEnabled: boolean;
+    enableReminder: (time: string) => void;
+    disableReminder: () => void;
+  };
 }
 
 const typeConfig = {
@@ -40,14 +45,9 @@ const typeConfig = {
   },
 };
 
-const StudyPlanView = ({ plan, onReset }: StudyPlanViewProps) => {
+const StudyPlanView = ({ plan, onReset, reminder }: StudyPlanViewProps) => {
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [reminderTime, setReminderTime] = useState<string>(
-    () => localStorage.getItem("study-reminder-time") || ""
-  );
-  const [reminderEnabled, setReminderEnabled] = useState(
-    () => !!localStorage.getItem("study-reminder-time")
-  );
+  const { reminderTime, reminderEnabled, enableReminder, disableReminder } = reminder;
 
   const toggleTask = (key: string) => {
     setChecked((prev) => {
@@ -57,55 +57,6 @@ const StudyPlanView = ({ plan, onReset }: StudyPlanViewProps) => {
       return next;
     });
   };
-
-  const todayTask = plan.find((d) => isToday(parseISO(d.date)));
-  const [lastFiredMinute, setLastFiredMinute] = useState<string>("");
-
-  const enableReminder = useCallback((time: string) => {
-    localStorage.setItem("study-reminder-time", time);
-    setReminderTime(time);
-    setReminderEnabled(true);
-
-    // Show a test reminder immediately
-    if (todayTask) {
-      const task = todayTask.tasks[0];
-      toast("📚 Reminder set!", {
-        description: `You'll be reminded at ${time}. Today: ${task.subject} — ${task.chapters.join(", ")}`,
-        duration: 5000,
-      });
-    } else {
-      toast.success(`Reminder set for ${time} every day! 🔔`);
-    }
-  }, [todayTask]);
-
-  const disableReminder = () => {
-    localStorage.removeItem("study-reminder-time");
-    setReminderTime("");
-    setReminderEnabled(false);
-    toast.info("Reminder turned off.");
-  };
-
-  // Check every 30s if it's reminder time — use in-app toast
-  useEffect(() => {
-    if (!reminderEnabled || !reminderTime) return;
-
-    const check = () => {
-      const now = new Date();
-      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      if (currentTime === reminderTime && lastFiredMinute !== currentTime && todayTask) {
-        setLastFiredMinute(currentTime);
-        const task = todayTask.tasks[0];
-        toast("📚 Time to study!", {
-          description: `${task.subject} — ${task.chapters.join(", ")}`,
-          duration: 15000,
-        });
-      }
-    };
-
-    check(); // check immediately
-    const interval = setInterval(check, 30_000);
-    return () => clearInterval(interval);
-  }, [reminderEnabled, reminderTime, todayTask, lastFiredMinute]);
 
   const getDateLabel = (dateStr: string) => {
     const date = parseISO(dateStr);
