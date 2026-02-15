@@ -6,6 +6,7 @@ import SubjectPicker from "@/components/SubjectPicker";
 import StudyPlanView from "@/components/StudyPlanView";
 import { Subject, DayPlan, generateStudyPlan } from "@/lib/planGenerator";
 import { toast } from "sonner";
+import { useStudyReminder } from "@/hooks/useStudyReminder";
 
 type Step = "upload" | "pick" | "plan";
 
@@ -14,6 +15,7 @@ const Index = () => {
   const [extractedSubjects, setExtractedSubjects] = useState<Subject[]>([]);
   const [plan, setPlan] = useState<DayPlan[] | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const reminder = useStudyReminder();
 
   const handleFilesReady = async (syllabus: File, datesheet: File) => {
     setIsProcessing(true);
@@ -107,7 +109,7 @@ const Index = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <StudyPlanView plan={plan} onReset={handleReset} />
+              <StudyPlanView plan={plan} onReset={handleReset} reminder={reminder} />
             </motion.div>
           ) : step === "pick" ? (
             <motion.div
