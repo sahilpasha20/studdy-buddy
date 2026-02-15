@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, X } from "lucide-react";
+import { Check, X, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
 import { Subject } from "@/lib/planGenerator";
 import { format, parseISO } from "date-fns";
 
 interface SubjectPickerProps {
   subjects: Subject[];
-  onConfirm: (selected: Subject[]) => void;
+  onConfirm: (selected: Subject[], hoursPerDay: number) => void;
   onBack: () => void;
 }
 
@@ -16,6 +17,7 @@ const SubjectPicker = ({ subjects, onConfirm, onBack }: SubjectPickerProps) => {
   const [selected, setSelected] = useState<Set<string>>(
     new Set(subjects.map((s) => s.id))
   );
+  const [hoursPerDay, setHoursPerDay] = useState(4);
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -28,7 +30,7 @@ const SubjectPicker = ({ subjects, onConfirm, onBack }: SubjectPickerProps) => {
 
   const handleConfirm = () => {
     const picked = subjects.filter((s) => selected.has(s.id));
-    if (picked.length > 0) onConfirm(picked);
+    if (picked.length > 0) onConfirm(picked, hoursPerDay);
   };
 
   return (
@@ -78,6 +80,32 @@ const SubjectPicker = ({ subjects, onConfirm, onBack }: SubjectPickerProps) => {
               </motion.button>
             );
           })}
+        </div>
+      </Card>
+
+      <Card className="p-6 border-border/60 bg-card shadow-sm">
+        <div className="flex items-center gap-2 mb-1">
+          <Clock className="w-4 h-4 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">
+            Daily Study Time
+          </h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          How many hours can you study per day? More hours = more chapters per day.
+        </p>
+        <div className="space-y-3">
+          <Slider
+            value={[hoursPerDay]}
+            onValueChange={([v]) => setHoursPerDay(v)}
+            min={1}
+            max={12}
+            step={1}
+          />
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">1 hr</span>
+            <span className="font-semibold text-primary">{hoursPerDay} hours/day → ~{Math.max(1, Math.floor(hoursPerDay / 2))} chapter{Math.floor(hoursPerDay / 2) !== 1 ? "s" : ""}/day</span>
+            <span className="text-muted-foreground">12 hrs</span>
+          </div>
         </div>
       </Card>
 

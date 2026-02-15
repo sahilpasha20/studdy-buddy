@@ -20,7 +20,7 @@ export interface DayTask {
 
 const REVISION_DAYS = 4;
 
-export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
+export function generateStudyPlan(subjects: Subject[], hoursPerDay: number = 4): DayPlan[] {
   if (subjects.length === 0) return [];
 
   const today = new Date();
@@ -35,7 +35,9 @@ export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
   const lastExam = parseISO(sorted[sorted.length - 1].examDate);
   const totalDays = differenceInDays(lastExam, today) + 1;
 
-  // Each day gets exactly ONE task
+  const chaptersPerDay = Math.max(1, Math.floor(hoursPerDay / 2));
+
+  // Each day gets exactly ONE task (but may have multiple chapters)
   const daySlots = new Map<string, DayTask>();
 
   // 1) Reserve exam days first (highest priority)
@@ -76,18 +78,25 @@ export function generateStudyPlan(subjects: Subject[]): DayPlan[] {
     }
   }
 
-  // 4) Fill remaining open days with 1 chapter each
+  // 4) Fill remaining open days with chapters based on study hours
   let qi = 0;
   for (let d = 0; d < totalDays && qi < chapterQueue.length; d++) {
     const dateStr = format(addDays(today, d), "yyyy-MM-dd");
     if (daySlots.has(dateStr)) continue;
 
+    const dayChapters: string[] = [];
+    const subjectName = chapterQueue[qi].subject;
+    for (let c = 0; c < chaptersPerDay && qi < chapterQueue.length; c++) {
+      // Try to keep same subject per day, but allow mixing if needed
+      dayChapters.push(chapterQueue[qi].chapter);
+      qi++;
+    }
+
     daySlots.set(dateStr, {
-      subject: chapterQueue[qi].subject,
-      chapters: [chapterQueue[qi].chapter],
+      subject: subjectName,
+      chapters: dayChapters,
       type: "study",
     });
-    qi++;
   }
 
   // Convert to sorted array — each day has exactly 1 task

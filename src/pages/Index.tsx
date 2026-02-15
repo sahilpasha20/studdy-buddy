@@ -63,8 +63,8 @@ const Index = () => {
     }
   };
 
-  const handleSubjectsConfirmed = (selected: Subject[]) => {
-    const generatedPlan = generateStudyPlan(selected);
+  const handleSubjectsConfirmed = (selected: Subject[], hoursPerDay: number) => {
+    const generatedPlan = generateStudyPlan(selected, hoursPerDay);
     if (generatedPlan.length === 0) {
       toast.error("All exam dates seem to be in the past.");
       return;
