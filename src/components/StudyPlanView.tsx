@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { motion } from "framer-motion";
-import { BookOpen, RefreshCw, FileText, ArrowLeft } from "lucide-react";
+import { BookOpen, RefreshCw, FileText, ArrowLeft, Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface StudyPlanViewProps {
   plan: DayPlan[];
@@ -40,6 +42,12 @@ const typeConfig = {
 
 const StudyPlanView = ({ plan, onReset }: StudyPlanViewProps) => {
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [reminderTime, setReminderTime] = useState<string>(
+    () => localStorage.getItem("study-reminder-time") || ""
+  );
+  const [reminderEnabled, setReminderEnabled] = useState(
+    () => !!localStorage.getItem("study-reminder-time")
+  );
 
   const toggleTask = (key: string) => {
     setChecked((prev) => {
@@ -49,6 +57,50 @@ const StudyPlanView = ({ plan, onReset }: StudyPlanViewProps) => {
       return next;
     });
   };
+
+  const todayTask = plan.find((d) => isToday(parseISO(d.date)));
+
+  const enableReminder = useCallback(async (time: string) => {
+    if (!("Notification" in window)) {
+      toast.error("Your browser doesn't support notifications.");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      toast.error("Please allow notifications to get study reminders.");
+      return;
+    }
+    localStorage.setItem("study-reminder-time", time);
+    setReminderTime(time);
+    setReminderEnabled(true);
+    toast.success(`Reminder set for ${time} every day! 🔔`);
+  }, []);
+
+  const disableReminder = () => {
+    localStorage.removeItem("study-reminder-time");
+    setReminderTime("");
+    setReminderEnabled(false);
+    toast.info("Reminder turned off.");
+  };
+
+  // Check every minute if it's reminder time
+  useEffect(() => {
+    if (!reminderEnabled || !reminderTime) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      if (currentTime === reminderTime && todayTask) {
+        const task = todayTask.tasks[0];
+        new Notification("📚 Time to study!", {
+          body: `Today: ${task.subject} — ${task.chapters.join(", ")}`,
+          icon: "/favicon.ico",
+        });
+      }
+    }, 60_000);
+
+    return () => clearInterval(interval);
+  }, [reminderEnabled, reminderTime, todayTask]);
 
   const getDateLabel = (dateStr: string) => {
     const date = parseISO(dateStr);
@@ -73,6 +125,42 @@ const StudyPlanView = ({ plan, onReset }: StudyPlanViewProps) => {
           ))}
         </div>
       </div>
+
+      {/* Reminder Card */}
+      <Card className="p-4 border-border/60 bg-card shadow-sm mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {reminderEnabled ? (
+              <Bell className="w-4 h-4 text-primary" />
+            ) : (
+              <BellOff className="w-4 h-4 text-muted-foreground" />
+            )}
+            <span className="text-sm font-medium text-foreground">
+              Daily Study Reminder
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="time"
+              value={reminderTime}
+              onChange={(e) => {
+                if (e.target.value) enableReminder(e.target.value);
+              }}
+              className="text-sm border border-input rounded-md px-2 py-1 bg-background text-foreground"
+            />
+            {reminderEnabled && (
+              <Button variant="ghost" size="sm" onClick={disableReminder}>
+                <BellOff className="w-3.5 h-3.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+        {reminderEnabled && (
+          <p className="text-xs text-muted-foreground mt-2">
+            You'll get a notification at {reminderTime} every day reminding you to study 🔔
+          </p>
+        )}
+      </Card>
 
       <div className="relative">
         {/* Timeline line */}

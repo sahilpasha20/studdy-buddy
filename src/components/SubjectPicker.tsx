@@ -91,7 +91,7 @@ const SubjectPicker = ({ subjects, onConfirm, onBack }: SubjectPickerProps) => {
           </h2>
         </div>
         <p className="text-sm text-muted-foreground mb-5">
-          How many hours can you study per day? More hours = more chapters per day.
+          How many hours can you study per day? We'll keep the pace gentle.
         </p>
         <div className="space-y-3">
           <Slider
@@ -103,7 +103,7 @@ const SubjectPicker = ({ subjects, onConfirm, onBack }: SubjectPickerProps) => {
           />
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">1 hr</span>
-            <span className="font-semibold text-primary">{hoursPerDay} hours/day → ~{Math.max(1, Math.floor(hoursPerDay / 2))} chapter{Math.floor(hoursPerDay / 2) !== 1 ? "s" : ""}/day</span>
+            <span className="font-semibold text-primary">{hoursPerDay} hours/day → ~{Math.max(1, Math.floor(hoursPerDay / 3))} chapter{Math.max(1, Math.floor(hoursPerDay / 3)) !== 1 ? "s" : ""}/day</span>
             <span className="text-muted-foreground">12 hrs</span>
           </div>
         </div>
