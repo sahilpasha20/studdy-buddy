@@ -35,7 +35,8 @@ export function generateStudyPlan(subjects: Subject[], hoursPerDay: number = 4):
   const lastExam = parseISO(sorted[sorted.length - 1].examDate);
   const totalDays = differenceInDays(lastExam, today) + 1;
 
-  const chaptersPerDay = Math.max(1, Math.floor(hoursPerDay / 2));
+  // 1 chapter per 3 hours — gentler pace for younger students
+  const chaptersPerDay = Math.max(1, Math.floor(hoursPerDay / 3));
 
   // Each day gets exactly ONE task (but may have multiple chapters)
   const daySlots = new Map<string, DayTask>();
