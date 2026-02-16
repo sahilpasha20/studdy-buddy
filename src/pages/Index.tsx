@@ -1,19 +1,34 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Loader2 } from "lucide-react";
 import UploadForm from "@/components/UploadForm";
 import SubjectPicker from "@/components/SubjectPicker";
 import StudyPlanView from "@/components/StudyPlanView";
-import { Subject, DayPlan, generateStudyPlan } from "@/lib/planGenerator";
+import { Subject, generateStudyPlan } from "@/lib/planGenerator";
 import { toast } from "sonner";
 import { useStudyReminder } from "@/hooks/useStudyReminder";
+import { useStudyPlan } from "@/hooks/useStudyPlan";
 
 type Step = "upload" | "pick" | "plan";
 
 const Index = () => {
-  const [step, setStep] = useState<Step>("upload");
-  const [extractedSubjects, setExtractedSubjects] = useState<Subject[]>([]);
-  const [plan, setPlan] = useState<DayPlan[] | null>(null);
+  const {
+    planId,
+    extractedSubjects,
+    plan,
+    checkedTasks,
+    loading,
+    savePlan,
+    toggleTask,
+    saveReminderSettings,
+    resetPlan,
+    setExtractedSubjects,
+    setPlan,
+  } = useStudyPlan();
+
+  // Derive step from state
+  const step: Step = plan ? "plan" : extractedSubjects.length > 0 ? "pick" : "upload";
+
   const [isProcessing, setIsProcessing] = useState(false);
   const reminder = useStudyReminder();
 
@@ -55,7 +70,6 @@ const Index = () => {
       }));
 
       setExtractedSubjects(subjects);
-      setStep("pick");
       toast.success(`Extracted ${subjects.length} subjects!`);
     } catch (err: any) {
       console.error("Parse error:", err);
@@ -65,22 +79,27 @@ const Index = () => {
     }
   };
 
-  const handleSubjectsConfirmed = (selected: Subject[], hoursPerDay: number) => {
+  const handleSubjectsConfirmed = async (selected: Subject[], hoursPerDay: number) => {
     const generatedPlan = generateStudyPlan(selected, hoursPerDay);
     if (generatedPlan.length === 0) {
       toast.error("All exam dates seem to be in the past.");
       return;
     }
-    setPlan(generatedPlan);
-    setStep("plan");
-    toast.success(`Plan generated for ${selected.length} subjects!`);
+    await savePlan(selected, hoursPerDay, generatedPlan);
+    toast.success(`Plan generated & saved for ${selected.length} subjects!`);
   };
 
   const handleReset = () => {
-    setPlan(null);
-    setExtractedSubjects([]);
-    setStep("upload");
+    resetPlan();
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -109,7 +128,14 @@ const Index = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <StudyPlanView plan={plan} onReset={handleReset} reminder={reminder} />
+              <StudyPlanView
+                plan={plan}
+                onReset={handleReset}
+                reminder={reminder}
+                checkedTasks={checkedTasks}
+                onToggleTask={toggleTask}
+                onReminderChange={saveReminderSettings}
+              />
             </motion.div>
           ) : step === "pick" ? (
             <motion.div
