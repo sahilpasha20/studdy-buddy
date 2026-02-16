@@ -14,7 +14,106 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      day_tasks: {
+        Row: {
+          chapters: string[]
+          created_at: string
+          date: string
+          id: string
+          is_completed: boolean
+          plan_id: string
+          subject: string
+          type: string
+        }
+        Insert: {
+          chapters?: string[]
+          created_at?: string
+          date: string
+          id?: string
+          is_completed?: boolean
+          plan_id: string
+          subject: string
+          type: string
+        }
+        Update: {
+          chapters?: string[]
+          created_at?: string
+          date?: string
+          id?: string
+          is_completed?: boolean
+          plan_id?: string
+          subject?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day_tasks_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "study_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_plans: {
+        Row: {
+          created_at: string
+          hours_per_day: number
+          id: string
+          reminder_enabled: boolean
+          reminder_time: string | null
+        }
+        Insert: {
+          created_at?: string
+          hours_per_day?: number
+          id?: string
+          reminder_enabled?: boolean
+          reminder_time?: string | null
+        }
+        Update: {
+          created_at?: string
+          hours_per_day?: number
+          id?: string
+          reminder_enabled?: boolean
+          reminder_time?: string | null
+        }
+        Relationships: []
+      }
+      subjects: {
+        Row: {
+          chapters: string[]
+          created_at: string
+          exam_date: string
+          id: string
+          name: string
+          plan_id: string
+        }
+        Insert: {
+          chapters?: string[]
+          created_at?: string
+          exam_date: string
+          id?: string
+          name: string
+          plan_id: string
+        }
+        Update: {
+          chapters?: string[]
+          created_at?: string
+          exam_date?: string
+          id?: string
+          name?: string
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "study_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
