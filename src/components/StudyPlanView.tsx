@@ -1,10 +1,10 @@
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { motion } from "framer-motion";
-import { BookOpen, RefreshCw, FileText, ArrowLeft, Bell, BellOff } from "lucide-react";
+import { BookOpen, RefreshCw, FileText, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card } from "@/components/ui/card";
+import { NotificationSettings } from "@/components/NotificationSettings";
 
 interface StudyPlanViewProps {
   plan: DayPlan[];
@@ -12,8 +12,12 @@ interface StudyPlanViewProps {
   reminder: {
     reminderTime: string;
     reminderEnabled: boolean;
-    enableReminder: (time: string) => void;
+    notificationPermission: "granted" | "denied" | "default";
+    soundEnabled: boolean;
+    enableReminder: (time: string) => Promise<void>;
     disableReminder: () => void;
+    requestPermission: () => Promise<"granted" | "denied" | "default">;
+    toggleSound: (enabled: boolean) => void;
   };
   checkedTasks: Set<string>;
   onToggleTask: (taskKey: string) => void;
@@ -48,10 +52,19 @@ const typeConfig = {
 };
 
 const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, onReminderChange }: StudyPlanViewProps) => {
-  const { reminderTime, reminderEnabled, enableReminder, disableReminder } = reminder;
+  const {
+    reminderTime,
+    reminderEnabled,
+    notificationPermission,
+    soundEnabled,
+    enableReminder,
+    disableReminder,
+    requestPermission,
+    toggleSound,
+  } = reminder;
 
-  const handleReminderTimeChange = (time: string) => {
-    enableReminder(time);
+  const handleEnableReminder = async (time: string) => {
+    await enableReminder(time);
     onReminderChange(time, true);
   };
 
@@ -84,41 +97,18 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
         </div>
       </div>
 
-      {/* Reminder Card */}
-      <Card className="p-4 border-border/60 bg-card shadow-sm mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {reminderEnabled ? (
-              <Bell className="w-4 h-4 text-primary" />
-            ) : (
-              <BellOff className="w-4 h-4 text-muted-foreground" />
-            )}
-            <span className="text-sm font-medium text-foreground">
-              Daily Study Reminder
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="time"
-              value={reminderTime}
-              onChange={(e) => {
-                if (e.target.value) handleReminderTimeChange(e.target.value);
-              }}
-              className="text-sm border border-input rounded-md px-2 py-1 bg-background text-foreground"
-            />
-            {reminderEnabled && (
-              <Button variant="ghost" size="sm" onClick={handleDisableReminder}>
-                <BellOff className="w-3.5 h-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
-        {reminderEnabled && (
-          <p className="text-xs text-muted-foreground mt-2">
-            You'll get a notification at {reminderTime} every day reminding you to study 🔔
-          </p>
-        )}
-      </Card>
+      <div className="mb-6">
+        <NotificationSettings
+          reminderTime={reminderTime}
+          reminderEnabled={reminderEnabled}
+          notificationPermission={notificationPermission}
+          soundEnabled={soundEnabled}
+          onEnableReminder={handleEnableReminder}
+          onDisableReminder={handleDisableReminder}
+          onRequestPermission={requestPermission}
+          onToggleSound={toggleSound}
+        />
+      </div>
 
       <div className="relative">
         <div className="absolute left-[19px] top-0 bottom-0 w-px bg-border" />
