@@ -1,13 +1,10 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -27,8 +24,8 @@ serve(async (req) => {
     // Read files as base64 for the AI
     const syllabusBytes = new Uint8Array(await syllabusFile.arrayBuffer());
     const datesheetBytes = new Uint8Array(await datesheetFile.arrayBuffer());
-    const syllabusB64 = base64Encode(syllabusBytes);
-    const datesheetB64 = base64Encode(datesheetBytes);
+    const syllabusB64 = btoa(String.fromCharCode(...syllabusBytes));
+    const datesheetB64 = btoa(String.fromCharCode(...datesheetBytes));
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
