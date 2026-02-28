@@ -4,6 +4,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+function arrayBufferToBase64(buffer: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < buffer.length; i += chunkSize) {
+    const chunk = buffer.subarray(i, Math.min(i + chunkSize, buffer.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -21,11 +31,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Read files as base64 for the AI
     const syllabusBytes = new Uint8Array(await syllabusFile.arrayBuffer());
     const datesheetBytes = new Uint8Array(await datesheetFile.arrayBuffer());
-    const syllabusB64 = btoa(String.fromCharCode(...syllabusBytes));
-    const datesheetB64 = btoa(String.fromCharCode(...datesheetBytes));
+    const syllabusB64 = arrayBufferToBase64(syllabusBytes);
+    const datesheetB64 = arrayBufferToBase64(datesheetBytes);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
