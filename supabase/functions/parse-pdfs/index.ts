@@ -33,84 +33,59 @@ function parseSubjectsFromText(syllabusText: string, datesheetText: string) {
   const syllabusLines = syllabusText.split("\n").map(l => l.trim()).filter(l => l);
   const datesheetLines = datesheetText.split("\n").map(l => l.trim()).filter(l => l);
 
-  const datePattern = /\b(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})\b/;
+  const datePattern = /(\d{1,2}\/\d{1,2}\/\d{2,4})/;
   const subjectDateMap = new Map<string, string>();
 
-  for (let i = 0; i < datesheetLines.length; i++) {
-    const line = datesheetLines[i];
+  for (const line of datesheetLines) {
     const dateMatch = line.match(datePattern);
+    if (!dateMatch) continue;
 
-    if (dateMatch) {
-      const datePart = dateMatch[1];
-      let subjectPart = line.replace(datePart, "").trim();
+    const datePart = dateMatch[1];
+    const parts = datePart.split("/");
 
-      subjectPart = subjectPart.replace(/[:\-\|]/g, " ").trim();
+    if (parts.length === 3) {
+      let [day, month, year] = parts;
+      if (year.length === 2) year = `20${year}`;
+      const isoDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 
-      let isoDate = datePart;
-      const parts = datePart.split(/[\/\-]/);
-      if (parts.length === 3) {
-        let [first, second, third] = parts;
+      const beforeDate = line.substring(0, line.indexOf(datePart)).trim();
+      const afterDate = line.substring(line.indexOf(datePart) + datePart.length).trim();
 
-        if (first.length === 4) {
-          isoDate = `${first}-${second.padStart(2, "0")}-${third.padStart(2, "0")}`;
-        } else {
-          const year = third.length === 2 ? `20${third}` : third;
-          isoDate = `${year}-${second.padStart(2, "0")}-${first.padStart(2, "0")}`;
-        }
-      }
+      const subjectNames = [beforeDate, afterDate]
+        .join(" ")
+        .split(/\s+/)
+        .filter(s => s.length > 2 && !/monday|tuesday|wednesday|thursday|friday|saturday|sunday/i.test(s));
 
-      if (subjectPart.length > 2) {
-        const cleanSubject = subjectPart.replace(/\s+/g, " ").toLowerCase();
-        subjectDateMap.set(cleanSubject, isoDate);
-      }
-    } else {
-      if (i + 1 < datesheetLines.length) {
-        const nextLine = datesheetLines[i + 1];
-        const nextDateMatch = nextLine.match(datePattern);
-
-        if (nextDateMatch && line.length > 2 && line.length < 150) {
-          const datePart = nextDateMatch[1];
-          const parts = datePart.split(/[\/\-]/);
-          let isoDate = datePart;
-
-          if (parts.length === 3) {
-            let [first, second, third] = parts;
-            if (first.length === 4) {
-              isoDate = `${first}-${second.padStart(2, "0")}-${third.padStart(2, "0")}`;
-            } else {
-              const year = third.length === 2 ? `20${third}` : third;
-              isoDate = `${year}-${second.padStart(2, "0")}-${first.padStart(2, "0")}`;
-            }
-          }
-
-          const cleanSubject = line.replace(/[:\-\|]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
-          subjectDateMap.set(cleanSubject, isoDate);
+      for (const subj of subjectNames) {
+        const cleanSubj = subj.replace(/[^a-zA-Z\s&]/g, " ").trim().toLowerCase();
+        if (cleanSubj.length > 2) {
+          subjectDateMap.set(cleanSubj, isoDate);
         }
       }
     }
   }
 
+  const subjectHeaders = [
+    "ENGLISH LITERATURE", "ENGLISH LANGUAGE", "HINDI", "MATHEMATICS",
+    "SCIENCE", "HISTORY & CIVICS", "HISTORY", "CIVICS", "GEOGRAPHY",
+    "SANSKRIT", "FRENCH", "SPANISH", "COMPUTER STUDIES", "PHYSICS",
+    "CHEMISTRY", "BIOLOGY"
+  ];
+
   let currentSubject = "";
-  const chapters: string[] = [];
-  let inSubjectSection = false;
+  let chapters: string[] = [];
 
   for (let i = 0; i < syllabusLines.length; i++) {
     const line = syllabusLines[i];
-    const nextLine = i + 1 < syllabusLines.length ? syllabusLines[i + 1] : "";
 
-    const isPotentialSubject =
-      (line.length > 3 && line.length < 150) &&
-      (line.match(/^[A-Z]/) || line.match(/^\d+[\.\)]/)) &&
-      !line.match(/^(chapter|unit|topic|section|page|contents?|syllabus)\s/i);
+    const matchedHeader = subjectHeaders.find(h =>
+      line.toUpperCase() === h ||
+      (line.toUpperCase().includes(h) && line.length < h.length + 10)
+    );
 
-    const hasChapterIndicators =
-      nextLine.match(/chapter|unit|topic|section|module|\d+\.\d+/i) ||
-      (chapters.length > 0 && line.match(/chapter|unit|topic|section|module|\d+\.\d+/i));
-
-    if (isPotentialSubject && (hasChapterIndicators || inSubjectSection)) {
+    if (matchedHeader) {
       if (currentSubject && chapters.length > 0) {
         const examDate = findExamDate(currentSubject, subjectDateMap);
-
         if (examDate) {
           subjects.push({
             name: currentSubject,
@@ -118,21 +93,19 @@ function parseSubjectsFromText(syllabusText: string, datesheetText: string) {
             examDate,
           });
         }
-        chapters.length = 0;
       }
 
-      currentSubject = line.replace(/^\d+[\.\)]\s*/, "").trim();
-      inSubjectSection = true;
-    } else if (currentSubject && line.length > 5) {
-      const isChapter =
+      currentSubject = matchedHeader;
+      chapters = [];
+    } else if (currentSubject) {
+      const isChapterLine =
         line.match(/^\d+[\.\)]/i) ||
-        line.match(/chapter|unit|topic|section|module/i) ||
-        line.match(/^\d+\.\d+/) ||
-        (line.length > 10 && line.length < 300 && !line.match(/^(page|contents?|syllabus)\s/i));
+        (line.length > 10 && line.length < 200 &&
+         !line.match(/^(page|form|term|cluster|test|syllabus|prose|poetry|grammar)/i));
 
-      if (isChapter) {
+      if (isChapterLine) {
         const cleanChapter = line.replace(/^\d+[\.\)]\s*/, "").trim();
-        if (cleanChapter.length > 3) {
+        if (cleanChapter.length > 3 && !subjectHeaders.some(h => cleanChapter.toUpperCase().includes(h))) {
           chapters.push(cleanChapter);
         }
       }
