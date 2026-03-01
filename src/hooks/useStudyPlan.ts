@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Subject, DayPlan, DayTask, generateStudyPlan } from "@/lib/planGenerator";
+import { Subject, DayPlan, DayTask, StudyPace } from "@/lib/planGenerator";
 import { toast } from "sonner";
 
 export function useStudyPlan() {
@@ -90,12 +90,15 @@ export function useStudyPlan() {
 
   // Save a new plan to DB
   const savePlan = useCallback(
-    async (subjects: Subject[], hoursPerDay: number, generatedPlan: DayPlan[]) => {
+    async (subjects: Subject[], pace: StudyPace, generatedPlan: DayPlan[]) => {
       try {
         // Create study plan
         const { data: planData, error: planError } = await supabase
           .from("study_plans")
-          .insert({ hours_per_day: hoursPerDay })
+          .insert({
+            hours_per_day: pace.hoursPerDay,
+            minutes_per_chapter: pace.minutesPerChapter,
+          })
           .select("id")
           .single();
 

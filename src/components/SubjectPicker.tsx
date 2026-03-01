@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, X, Clock } from "lucide-react";
+import { Check, X, Clock, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Subject } from "@/lib/planGenerator";
 import { format, parseISO } from "date-fns";
 
+export interface StudyPace {
+  minutesPerChapter: number;
+  hoursPerDay: number;
+}
+
 interface SubjectPickerProps {
   subjects: Subject[];
-  onConfirm: (selected: Subject[], hoursPerDay: number) => void;
+  onConfirm: (selected: Subject[], pace: StudyPace) => void;
   onBack: () => void;
 }
 
@@ -17,6 +22,7 @@ const SubjectPicker = ({ subjects, onConfirm, onBack }: SubjectPickerProps) => {
   const [selected, setSelected] = useState<Set<string>>(
     new Set(subjects.map((s) => s.id))
   );
+  const [minutesPerChapter, setMinutesPerChapter] = useState(60);
   const [hoursPerDay, setHoursPerDay] = useState(4);
 
   const toggle = (id: string) => {
@@ -28,9 +34,11 @@ const SubjectPicker = ({ subjects, onConfirm, onBack }: SubjectPickerProps) => {
     });
   };
 
+  const chaptersPerDay = Math.max(1, Math.floor((hoursPerDay * 60) / minutesPerChapter));
+
   const handleConfirm = () => {
     const picked = subjects.filter((s) => selected.has(s.id));
-    if (picked.length > 0) onConfirm(picked, hoursPerDay);
+    if (picked.length > 0) onConfirm(picked, { minutesPerChapter, hoursPerDay });
   };
 
   return (
@@ -85,13 +93,43 @@ const SubjectPicker = ({ subjects, onConfirm, onBack }: SubjectPickerProps) => {
 
       <Card className="p-6 border-border/60 bg-card shadow-sm">
         <div className="flex items-center gap-2 mb-1">
+          <BookOpen className="w-4 h-4 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">
+            Time Per Chapter
+          </h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          How long does it usually take you to complete one chapter?
+        </p>
+        <div className="space-y-3">
+          <Slider
+            value={[minutesPerChapter]}
+            onValueChange={([v]) => setMinutesPerChapter(v)}
+            min={15}
+            max={180}
+            step={15}
+          />
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">15 min</span>
+            <span className="font-semibold text-primary">
+              {minutesPerChapter >= 60
+                ? `${Math.floor(minutesPerChapter / 60)}h ${minutesPerChapter % 60 > 0 ? `${minutesPerChapter % 60}m` : ''}`
+                : `${minutesPerChapter} min`} per chapter
+            </span>
+            <span className="text-muted-foreground">3 hrs</span>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6 border-border/60 bg-card shadow-sm">
+        <div className="flex items-center gap-2 mb-1">
           <Clock className="w-4 h-4 text-primary" />
           <h2 className="text-lg font-semibold text-foreground">
             Daily Study Time
           </h2>
         </div>
         <p className="text-sm text-muted-foreground mb-5">
-          How many hours can you study per day? We'll keep the pace gentle.
+          How many hours can you study each day?
         </p>
         <div className="space-y-3">
           <Slider
@@ -103,10 +141,19 @@ const SubjectPicker = ({ subjects, onConfirm, onBack }: SubjectPickerProps) => {
           />
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">1 hr</span>
-            <span className="font-semibold text-primary">{hoursPerDay} hours/day → ~{Math.max(1, Math.floor(hoursPerDay / 3))} chapter{Math.max(1, Math.floor(hoursPerDay / 3)) !== 1 ? "s" : ""}/day</span>
+            <span className="font-semibold text-primary">{hoursPerDay} hours/day</span>
             <span className="text-muted-foreground">12 hrs</span>
           </div>
         </div>
+      </Card>
+
+      <Card className="p-5 border-primary/30 bg-primary/5">
+        <p className="text-sm text-foreground font-medium text-center">
+          Based on your pace: <span className="text-primary">{chaptersPerDay} chapter{chaptersPerDay !== 1 ? 's' : ''}</span> per day
+        </p>
+        <p className="text-xs text-muted-foreground text-center mt-1">
+          ({minutesPerChapter} min/chapter x {chaptersPerDay} = {minutesPerChapter * chaptersPerDay} min = {(minutesPerChapter * chaptersPerDay / 60).toFixed(1)} hrs of study)
+        </p>
       </Card>
 
       <div className="flex gap-3">

@@ -18,9 +18,14 @@ export interface DayTask {
   type: "study" | "revision" | "exam";
 }
 
+export interface StudyPace {
+  minutesPerChapter: number;
+  hoursPerDay: number;
+}
+
 const REVISION_DAYS = 4;
 
-export function generateStudyPlan(subjects: Subject[], hoursPerDay: number = 4): DayPlan[] {
+export function generateStudyPlan(subjects: Subject[], pace: StudyPace): DayPlan[] {
   if (subjects.length === 0) return [];
 
   const today = new Date();
@@ -35,8 +40,7 @@ export function generateStudyPlan(subjects: Subject[], hoursPerDay: number = 4):
   const lastExam = parseISO(sorted[sorted.length - 1].examDate);
   const totalDays = differenceInDays(lastExam, today) + 1;
 
-  // 1 chapter per 3 hours — gentler pace for younger students
-  const chaptersPerDay = Math.max(1, Math.floor(hoursPerDay / 3));
+  const chaptersPerDay = Math.max(1, Math.floor((pace.hoursPerDay * 60) / pace.minutesPerChapter));
 
   // Each day gets exactly ONE task (but may have multiple chapters)
   const daySlots = new Map<string, DayTask>();

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GraduationCap, Loader2 } from "lucide-react";
 import UploadForm, { GradeLevel } from "@/components/UploadForm";
-import SubjectPicker from "@/components/SubjectPicker";
+import SubjectPicker, { StudyPace } from "@/components/SubjectPicker";
 import StudyPlanView from "@/components/StudyPlanView";
 import { Subject, generateStudyPlan } from "@/lib/planGenerator";
 import { toast } from "sonner";
@@ -80,13 +80,13 @@ const Index = () => {
     }
   };
 
-  const handleSubjectsConfirmed = async (selected: Subject[], hoursPerDay: number) => {
-    const generatedPlan = generateStudyPlan(selected, hoursPerDay);
+  const handleSubjectsConfirmed = async (selected: Subject[], pace: StudyPace) => {
+    const generatedPlan = generateStudyPlan(selected, pace);
     if (generatedPlan.length === 0) {
       toast.error("All exam dates seem to be in the past.");
       return;
     }
-    await savePlan(selected, hoursPerDay, generatedPlan);
+    await savePlan(selected, pace, generatedPlan);
     toast.success(`Plan generated & saved for ${selected.length} subjects!`);
   };
 
