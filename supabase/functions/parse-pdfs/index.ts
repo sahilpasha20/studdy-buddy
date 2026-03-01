@@ -1,17 +1,124 @@
+import { getDocument } from "npm:pdfjs-dist@4.0.379";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-function arrayBufferToBase64(buffer: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < buffer.length; i += chunkSize) {
-    const chunk = buffer.subarray(i, Math.min(i + chunkSize, buffer.length));
-    binary += String.fromCharCode(...chunk);
+async function extractTextFromPDF(pdfBytes: Uint8Array): Promise<string> {
+  const loadingTask = getDocument({ data: pdfBytes });
+  const pdf = await loadingTask.promise;
+  let fullText = "";
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => item.str)
+      .join(" ");
+    fullText += pageText + "\n";
   }
-  return btoa(binary);
+
+  return fullText;
+}
+
+function parseSubjectsFromText(syllabusText: string, datesheetText: string) {
+  const subjects: Array<{
+    name: string;
+    chapters: string[];
+    examDate: string;
+  }> = [];
+
+  const syllabusLines = syllabusText.split("\n").filter((line) => line.trim());
+  const datesheetLines = datesheetText.split("\n").filter((line) => line.trim());
+
+  const datePattern = /\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/;
+  const subjectDateMap = new Map<string, string>();
+
+  for (const line of datesheetLines) {
+    const dateMatch = line.match(datePattern);
+    if (dateMatch) {
+      const datePart = dateMatch[0];
+      const subjectPart = line.replace(datePart, "").trim();
+
+      let isoDate = datePart;
+      if (datePart.includes("/") || datePart.includes("-")) {
+        const parts = datePart.split(/[\/\-]/);
+        if (parts.length === 3) {
+          const [d, m, y] = parts;
+          const year = y.length === 2 ? `20${y}` : y;
+          isoDate = `${year}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+        }
+      }
+
+      subjectDateMap.set(subjectPart.toLowerCase(), isoDate);
+    }
+  }
+
+  let currentSubject = "";
+  const chapters: string[] = [];
+
+  for (const line of syllabusLines) {
+    const lowerLine = line.toLowerCase();
+
+    const isSubjectHeader = line.length < 100 &&
+      (line.match(/^[A-Z][a-zA-Z\s]+$/) ||
+       line.match(/subject|course|module/i));
+
+    if (isSubjectHeader) {
+      if (currentSubject && chapters.length > 0) {
+        const subjectLower = currentSubject.toLowerCase();
+        let examDate = "";
+
+        for (const [key, date] of subjectDateMap.entries()) {
+          if (subjectLower.includes(key) || key.includes(subjectLower)) {
+            examDate = date;
+            break;
+          }
+        }
+
+        if (examDate) {
+          subjects.push({
+            name: currentSubject,
+            chapters: [...chapters],
+            examDate,
+          });
+        }
+        chapters.length = 0;
+      }
+      currentSubject = line.trim();
+    } else if (currentSubject && line.trim()) {
+      const isChapter = line.match(/chapter|unit|topic|section|\d+\./i) ||
+                       (line.length > 10 && line.length < 200);
+
+      if (isChapter) {
+        chapters.push(line.trim());
+      }
+    }
+  }
+
+  if (currentSubject && chapters.length > 0) {
+    const subjectLower = currentSubject.toLowerCase();
+    let examDate = "";
+
+    for (const [key, date] of subjectDateMap.entries()) {
+      if (subjectLower.includes(key) || key.includes(subjectLower)) {
+        examDate = date;
+        break;
+      }
+    }
+
+    if (examDate) {
+      subjects.push({
+        name: currentSubject,
+        chapters: [...chapters],
+        examDate,
+      });
+    }
+  }
+
+  return subjects;
 }
 
 Deno.serve(async (req) => {
@@ -33,100 +140,22 @@ Deno.serve(async (req) => {
 
     const syllabusBytes = new Uint8Array(await syllabusFile.arrayBuffer());
     const datesheetBytes = new Uint8Array(await datesheetFile.arrayBuffer());
-    const syllabusB64 = arrayBufferToBase64(syllabusBytes);
-    const datesheetB64 = arrayBufferToBase64(datesheetBytes);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const syllabusText = await extractTextFromPDF(syllabusBytes);
+    const datesheetText = await extractTextFromPDF(datesheetBytes);
 
-    const systemPrompt = `You are a study planner assistant. You will receive two PDF documents:
-1. A syllabus - containing subjects and their chapters/topics
-2. A datesheet - containing exam dates for each subject
+    const subjects = parseSubjectsFromText(syllabusText, datesheetText);
 
-Extract and return ONLY valid JSON (no markdown, no code fences) with this exact structure:
-{
-  "subjects": [
-    {
-      "name": "Subject Name",
-      "chapters": ["Chapter 1 name", "Chapter 2 name", ...],
-      "examDate": "YYYY-MM-DD"
-    }
-  ]
-}
-
-Rules:
-- Match each subject from the syllabus with its exam date from the datesheet
-- List ALL chapters/topics for each subject
-- Use ISO date format (YYYY-MM-DD) for exam dates
-- If a subject appears in the syllabus but not the datesheet, skip it
-- Keep chapter names concise but descriptive
-- Return ONLY the JSON object, nothing else`;
-
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Here are my two PDFs. The first is my syllabus and the second is my datesheet/exam schedule. Please extract all subjects, their chapters, and exam dates.",
-                },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: `data:application/pdf;base64,${syllabusB64}`,
-                  },
-                },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: `data:application/pdf;base64,${datesheetB64}`,
-                  },
-                },
-              ],
-            },
-          ],
+    if (subjects.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error: "Could not extract subjects from PDFs. Please ensure they contain valid syllabus and exam date information."
         }),
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI usage limit reached. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
-      throw new Error("AI gateway error");
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const aiResult = await response.json();
-    let content = aiResult.choices?.[0]?.message?.content || "";
-    
-    // Clean up potential markdown fences
-    content = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-    
-    const parsed = JSON.parse(content);
-
-    return new Response(JSON.stringify(parsed), {
+    return new Response(JSON.stringify({ subjects }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
