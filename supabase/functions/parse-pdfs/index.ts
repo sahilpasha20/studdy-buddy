@@ -30,53 +30,86 @@ function parseSubjectsFromText(syllabusText: string, datesheetText: string) {
     examDate: string;
   }> = [];
 
-  const syllabusLines = syllabusText.split("\n").filter((line) => line.trim());
-  const datesheetLines = datesheetText.split("\n").filter((line) => line.trim());
+  const syllabusLines = syllabusText.split("\n").map(l => l.trim()).filter(l => l);
+  const datesheetLines = datesheetText.split("\n").map(l => l.trim()).filter(l => l);
 
-  const datePattern = /\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/;
+  const datePattern = /\b(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})\b/;
   const subjectDateMap = new Map<string, string>();
 
-  for (const line of datesheetLines) {
+  for (let i = 0; i < datesheetLines.length; i++) {
+    const line = datesheetLines[i];
     const dateMatch = line.match(datePattern);
+
     if (dateMatch) {
-      const datePart = dateMatch[0];
-      const subjectPart = line.replace(datePart, "").trim();
+      const datePart = dateMatch[1];
+      let subjectPart = line.replace(datePart, "").trim();
+
+      subjectPart = subjectPart.replace(/[:\-\|]/g, " ").trim();
 
       let isoDate = datePart;
-      if (datePart.includes("/") || datePart.includes("-")) {
-        const parts = datePart.split(/[\/\-]/);
-        if (parts.length === 3) {
-          const [d, m, y] = parts;
-          const year = y.length === 2 ? `20${y}` : y;
-          isoDate = `${year}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      const parts = datePart.split(/[\/\-]/);
+      if (parts.length === 3) {
+        let [first, second, third] = parts;
+
+        if (first.length === 4) {
+          isoDate = `${first}-${second.padStart(2, "0")}-${third.padStart(2, "0")}`;
+        } else {
+          const year = third.length === 2 ? `20${third}` : third;
+          isoDate = `${year}-${second.padStart(2, "0")}-${first.padStart(2, "0")}`;
         }
       }
 
-      subjectDateMap.set(subjectPart.toLowerCase(), isoDate);
+      if (subjectPart.length > 2) {
+        const cleanSubject = subjectPart.replace(/\s+/g, " ").toLowerCase();
+        subjectDateMap.set(cleanSubject, isoDate);
+      }
+    } else {
+      if (i + 1 < datesheetLines.length) {
+        const nextLine = datesheetLines[i + 1];
+        const nextDateMatch = nextLine.match(datePattern);
+
+        if (nextDateMatch && line.length > 2 && line.length < 150) {
+          const datePart = nextDateMatch[1];
+          const parts = datePart.split(/[\/\-]/);
+          let isoDate = datePart;
+
+          if (parts.length === 3) {
+            let [first, second, third] = parts;
+            if (first.length === 4) {
+              isoDate = `${first}-${second.padStart(2, "0")}-${third.padStart(2, "0")}`;
+            } else {
+              const year = third.length === 2 ? `20${third}` : third;
+              isoDate = `${year}-${second.padStart(2, "0")}-${first.padStart(2, "0")}`;
+            }
+          }
+
+          const cleanSubject = line.replace(/[:\-\|]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+          subjectDateMap.set(cleanSubject, isoDate);
+        }
+      }
     }
   }
 
   let currentSubject = "";
   const chapters: string[] = [];
+  let inSubjectSection = false;
 
-  for (const line of syllabusLines) {
-    const lowerLine = line.toLowerCase();
+  for (let i = 0; i < syllabusLines.length; i++) {
+    const line = syllabusLines[i];
+    const nextLine = i + 1 < syllabusLines.length ? syllabusLines[i + 1] : "";
 
-    const isSubjectHeader = line.length < 100 &&
-      (line.match(/^[A-Z][a-zA-Z\s]+$/) ||
-       line.match(/subject|course|module/i));
+    const isPotentialSubject =
+      (line.length > 3 && line.length < 150) &&
+      (line.match(/^[A-Z]/) || line.match(/^\d+[\.\)]/)) &&
+      !line.match(/^(chapter|unit|topic|section|page|contents?|syllabus)\s/i);
 
-    if (isSubjectHeader) {
+    const hasChapterIndicators =
+      nextLine.match(/chapter|unit|topic|section|module|\d+\.\d+/i) ||
+      (chapters.length > 0 && line.match(/chapter|unit|topic|section|module|\d+\.\d+/i));
+
+    if (isPotentialSubject && (hasChapterIndicators || inSubjectSection)) {
       if (currentSubject && chapters.length > 0) {
-        const subjectLower = currentSubject.toLowerCase();
-        let examDate = "";
-
-        for (const [key, date] of subjectDateMap.entries()) {
-          if (subjectLower.includes(key) || key.includes(subjectLower)) {
-            examDate = date;
-            break;
-          }
-        }
+        const examDate = findExamDate(currentSubject, subjectDateMap);
 
         if (examDate) {
           subjects.push({
@@ -87,28 +120,27 @@ function parseSubjectsFromText(syllabusText: string, datesheetText: string) {
         }
         chapters.length = 0;
       }
-      currentSubject = line.trim();
-    } else if (currentSubject && line.trim()) {
-      const isChapter = line.match(/chapter|unit|topic|section|\d+\./i) ||
-                       (line.length > 10 && line.length < 200);
+
+      currentSubject = line.replace(/^\d+[\.\)]\s*/, "").trim();
+      inSubjectSection = true;
+    } else if (currentSubject && line.length > 5) {
+      const isChapter =
+        line.match(/^\d+[\.\)]/i) ||
+        line.match(/chapter|unit|topic|section|module/i) ||
+        line.match(/^\d+\.\d+/) ||
+        (line.length > 10 && line.length < 300 && !line.match(/^(page|contents?|syllabus)\s/i));
 
       if (isChapter) {
-        chapters.push(line.trim());
+        const cleanChapter = line.replace(/^\d+[\.\)]\s*/, "").trim();
+        if (cleanChapter.length > 3) {
+          chapters.push(cleanChapter);
+        }
       }
     }
   }
 
   if (currentSubject && chapters.length > 0) {
-    const subjectLower = currentSubject.toLowerCase();
-    let examDate = "";
-
-    for (const [key, date] of subjectDateMap.entries()) {
-      if (subjectLower.includes(key) || key.includes(subjectLower)) {
-        examDate = date;
-        break;
-      }
-    }
-
+    const examDate = findExamDate(currentSubject, subjectDateMap);
     if (examDate) {
       subjects.push({
         name: currentSubject,
@@ -119,6 +151,31 @@ function parseSubjectsFromText(syllabusText: string, datesheetText: string) {
   }
 
   return subjects;
+}
+
+function findExamDate(subjectName: string, dateMap: Map<string, string>): string {
+  const subjectLower = subjectName.toLowerCase().replace(/\s+/g, " ").trim();
+
+  for (const [key, date] of dateMap.entries()) {
+    const keyWords = key.split(/\s+/);
+    const subjectWords = subjectLower.split(/\s+/);
+
+    const matchCount = keyWords.filter(kw =>
+      subjectWords.some(sw => sw.includes(kw) || kw.includes(sw))
+    ).length;
+
+    if (matchCount >= Math.min(2, keyWords.length)) {
+      return date;
+    }
+  }
+
+  for (const [key, date] of dateMap.entries()) {
+    if (subjectLower.includes(key) || key.includes(subjectLower)) {
+      return date;
+    }
+  }
+
+  return "";
 }
 
 Deno.serve(async (req) => {
