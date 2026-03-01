@@ -1,7 +1,15 @@
 export type NotificationPermission = 'granted' | 'denied' | 'default';
 
 export function isNotificationSupported(): boolean {
-  return 'Notification' in window;
+  return 'Notification' in window && typeof Notification.requestPermission === 'function';
+}
+
+export function isInIframe(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
 }
 
 export function getNotificationPermission(): NotificationPermission {
@@ -11,17 +19,51 @@ export function getNotificationPermission(): NotificationPermission {
   return Notification.permission as NotificationPermission;
 }
 
-export async function requestNotificationPermission(): Promise<NotificationPermission> {
+export async function requestNotificationPermission(): Promise<{
+  permission: NotificationPermission;
+  error?: string
+}> {
   if (!isNotificationSupported()) {
-    return 'denied';
+    return {
+      permission: 'denied',
+      error: 'Your browser does not support notifications.'
+    };
+  }
+
+  if (isInIframe()) {
+    const currentPermission = getNotificationPermission();
+    if (currentPermission !== 'granted') {
+      return {
+        permission: 'denied',
+        error: 'Notifications are blocked in embedded mode. Please open this app in a new tab to enable notifications.'
+      };
+    }
   }
 
   try {
     const permission = await Notification.requestPermission();
-    return permission as NotificationPermission;
+
+    if (permission === 'default') {
+      return {
+        permission: 'default',
+        error: 'The notification prompt was dismissed. Please try again and click "Allow" when prompted.'
+      };
+    }
+
+    if (permission === 'denied') {
+      return {
+        permission: 'denied',
+        error: 'Notifications were blocked. To enable them, click the lock icon in your browser address bar and allow notifications.'
+      };
+    }
+
+    return { permission: permission as NotificationPermission };
   } catch (error) {
     console.error('Error requesting notification permission:', error);
-    return 'denied';
+    return {
+      permission: 'denied',
+      error: 'Failed to request notification permission. This may be due to browser restrictions.'
+    };
   }
 }
 

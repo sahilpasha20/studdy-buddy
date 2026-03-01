@@ -25,9 +25,9 @@ export function useStudyReminder() {
   const lastFiredRef = useRef("");
 
   const requestPermission = useCallback(async () => {
-    const permission = await requestNotificationPermission();
-    setNotificationPermission(permission);
-    return permission;
+    const result = await requestNotificationPermission();
+    setNotificationPermission(result.permission);
+    return result;
   }, []);
 
   const enableReminder = useCallback(
@@ -35,7 +35,11 @@ export function useStudyReminder() {
       let permission = notificationPermission;
 
       if (isNotificationSupported() && permission !== "granted") {
-        permission = await requestPermission();
+        const result = await requestPermission();
+        permission = result.permission;
+        if (result.error && result.permission !== "granted") {
+          toast.error(result.error, { duration: 6000 });
+        }
       }
 
       localStorage.setItem("study-reminder-time", time);
@@ -43,13 +47,13 @@ export function useStudyReminder() {
       setReminderEnabled(true);
 
       if (permission === "granted") {
-        toast.success("📚 Reminder set!", {
+        toast.success("Reminder set!", {
           description: `You'll get a notification at ${time} every day to study!`,
           duration: 5000,
         });
       } else {
-        toast("📚 Reminder set!", {
-          description: `You'll be reminded at ${time} every day. Enable browser notifications for better reminders!`,
+        toast("Reminder set!", {
+          description: `You'll be reminded at ${time} every day via in-app notifications.`,
           duration: 5000,
         });
       }

@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { testNotification, isNotificationSupported } from "@/lib/notifications";
+import { testNotification, isNotificationSupported, isInIframe } from "@/lib/notifications";
 import { toast } from "sonner";
+import { ExternalLink } from "lucide-react";
 
 interface NotificationSettingsProps {
   reminderTime: string;
@@ -16,7 +17,7 @@ interface NotificationSettingsProps {
   soundEnabled: boolean;
   onEnableReminder: (time: string) => void;
   onDisableReminder: () => void;
-  onRequestPermission: () => Promise<"granted" | "denied" | "default">;
+  onRequestPermission: () => Promise<{ permission: "granted" | "denied" | "default"; error?: string }>;
   onToggleSound: (enabled: boolean) => void;
 }
 
@@ -151,10 +152,42 @@ export function NotificationSettings({
         </div>
 
         {isNotificationSupported() && notificationPermission !== "granted" && (
-          <Button onClick={onRequestPermission} className="w-full" variant="outline">
-            <Bell className="h-4 w-4 mr-2" />
-            Enable Browser Notifications
-          </Button>
+          <div className="space-y-2">
+            {isInIframe() && (
+              <Alert className="border-amber-500 bg-amber-50">
+                <ExternalLink className="h-4 w-4" />
+                <AlertDescription>
+                  Browser notifications require opening this app in a new tab. Click the button below to open in a new window, or use in-app reminders instead.
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex gap-2">
+              <Button
+                onClick={async () => {
+                  const result = await onRequestPermission();
+                  if (result.error) {
+                    toast.error(result.error, { duration: 6000 });
+                  } else if (result.permission === "granted") {
+                    toast.success("Browser notifications enabled!");
+                  }
+                }}
+                className="flex-1"
+                variant="outline"
+              >
+                <Bell className="h-4 w-4 mr-2" />
+                Enable Notifications
+              </Button>
+              {isInIframe() && (
+                <Button
+                  onClick={() => window.open(window.location.href, "_blank")}
+                  variant="secondary"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in New Tab
+                </Button>
+              )}
+            </div>
+          </div>
         )}
 
         {notificationPermission === "granted" && (
