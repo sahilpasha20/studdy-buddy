@@ -114,10 +114,10 @@ const Index = () => {
             <GraduationCap className="w-7 h-7 text-primary" />
           </div>
           <h1 className="font-display text-4xl md:text-5xl text-foreground mb-2">
-            Study Buddy
+            Studdy Buddy
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Your own personal AI assistant that can plan your whole exam preparation for you! Good luck!
+            Your personal AI assistant designed to plan, organize, and optimize your entire exam preparation journey. Good luck!
           </p>
         </motion.div>
 
