@@ -32,12 +32,7 @@ export function NotificationSettings({
   onToggleSound,
 }: NotificationSettingsProps) {
   const handleTestNotification = () => {
-    if (notificationPermission !== "granted") {
-      toast.error("Please enable notifications first");
-      return;
-    }
-
-    const success = testNotification();
+    const success = testNotification(soundEnabled);
     if (success) {
       toast.success("Test notification sent!");
     } else {
@@ -190,42 +185,37 @@ export function NotificationSettings({
           </div>
         )}
 
-        {notificationPermission === "granted" && (
-          <>
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <Label htmlFor="sound-toggle" className="text-base cursor-pointer">
-                  Notification Sound
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Play a sound with the notification
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {soundEnabled ? (
-                  <Volume2 className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <VolumeX className="h-4 w-4 text-muted-foreground" />
-                )}
-                <Switch
-                  id="sound-toggle"
-                  checked={soundEnabled}
-                  onCheckedChange={onToggleSound}
-                />
-              </div>
-            </div>
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="space-y-0.5">
+            <Label htmlFor="sound-toggle" className="text-base cursor-pointer">
+              Alarm Sound
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Play an alarm sound when it's time to study
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {soundEnabled ? (
+              <Volume2 className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <VolumeX className="h-4 w-4 text-muted-foreground" />
+            )}
+            <Switch
+              id="sound-toggle"
+              checked={soundEnabled}
+              onCheckedChange={onToggleSound}
+            />
+          </div>
+        </div>
 
-            <Button
-              onClick={handleTestNotification}
-              variant="secondary"
-              className="w-full"
-              disabled={!reminderEnabled}
-            >
-              <TestTube className="h-4 w-4 mr-2" />
-              Test Notification
-            </Button>
-          </>
-        )}
+        <Button
+          onClick={handleTestNotification}
+          variant="secondary"
+          className="w-full"
+        >
+          <TestTube className="h-4 w-4 mr-2" />
+          Test Alarm
+        </Button>
       </CardContent>
     </Card>
   );

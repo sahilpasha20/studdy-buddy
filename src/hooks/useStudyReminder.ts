@@ -86,14 +86,20 @@ export function useStudyReminder() {
         lastFiredRef.current = currentTime;
 
         const notificationShown = showStudyNotification({
-          title: "📚 Time to Study!",
+          title: "Time to Study!",
           body: "Open your study plan and get started with today's tasks!",
           requireInteraction: true,
-          silent: !soundEnabled,
+          playSound: soundEnabled,
         });
 
+        if (!notificationShown && soundEnabled) {
+          import("@/lib/notifications").then(({ playNotificationSound }) => {
+            playNotificationSound();
+          });
+        }
+
         if (!notificationShown) {
-          toast("📚 Time to study!", {
+          toast("Time to study!", {
             description: "Open your study plan and get started!",
             duration: 15000,
           });
