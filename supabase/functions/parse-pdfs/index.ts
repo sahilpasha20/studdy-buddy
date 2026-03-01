@@ -229,25 +229,37 @@ function extractSubjectsFromSyllabus(syllabusText: string, grade: string): Map<s
   const subjectPositions: { subject: string; position: number }[] = [];
 
   for (const subject of allowedSubjects) {
-    const pattern = new RegExp(`\\b${subject.replace(/[&]/g, '\\$&')}\\b`, 'gi');
-    let match;
-    while ((match = pattern.exec(upperText)) !== null) {
-      const beforeChar = match.index > 0 ? upperText[match.index - 1] : ' ';
-      const afterChar = match.index + match[0].length < upperText.length
-        ? upperText[match.index + match[0].length]
-        : ' ';
+    const escapedSubject = subject.replace(/[&]/g, '\\$&');
+    const patterns = [
+      new RegExp(`(?:^|[\\s\\n])${escapedSubject}(?:[\\s\\n]|$)`, 'gi'),
+      new RegExp(`(?:^|[\\s\\n/])${escapedSubject}(?:[\\s\\n/]|$)`, 'gi'),
+    ];
 
-      if (/[\s\n]/.test(beforeChar) && /[\s\n]/.test(afterChar)) {
-        subjectPositions.push({ subject, position: match.index });
-        break;
+    let found = false;
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(upperText)) !== null) {
+        const actualStart = upperText.indexOf(subject, match.index);
+        if (actualStart !== -1) {
+          subjectPositions.push({ subject, position: actualStart });
+          found = true;
+          break;
+        }
       }
+      if (found) break;
     }
   }
 
   subjectPositions.sort((a, b) => a.position - b.position);
 
+  const processedSubjects = new Set<string>();
+
   for (let i = 0; i < subjectPositions.length; i++) {
     const { subject, position } = subjectPositions[i];
+
+    if (processedSubjects.has(subject)) continue;
+    processedSubjects.add(subject);
+
     const nextPosition = i < subjectPositions.length - 1
       ? subjectPositions[i + 1].position
       : text.length;
@@ -257,6 +269,17 @@ function extractSubjectsFromSyllabus(syllabusText: string, grade: string): Map<s
 
     if (chapters.length > 0) {
       subjectChapters.set(subject, chapters);
+    }
+  }
+
+  const languages = ["FRENCH", "SPANISH", "SANSKRIT"];
+  const foundLanguage = languages.find(lang => subjectChapters.has(lang));
+  if (foundLanguage) {
+    const languageChapters = subjectChapters.get(foundLanguage)!;
+    for (const lang of languages) {
+      if (allowedSubjects.includes(lang) && !subjectChapters.has(lang)) {
+        subjectChapters.set(lang, [...languageChapters]);
+      }
     }
   }
 
