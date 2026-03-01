@@ -82,16 +82,18 @@ let notificationAudio: HTMLAudioElement | null = null;
 function createAlarmSound(): HTMLAudioElement {
   const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
   const sampleRate = audioContext.sampleRate;
-  const duration = 2;
+  const duration = 20;
   const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
   const data = buffer.getChannelData(0);
 
   for (let i = 0; i < buffer.length; i++) {
     const t = i / sampleRate;
-    const freq1 = 440 * Math.pow(2, Math.floor(t * 4) % 2 === 0 ? 0 : 2/12);
+    const cycleTime = t % 2;
+    const freq1 = 440 * Math.pow(2, Math.floor(cycleTime * 4) % 2 === 0 ? 0 : 2/12);
     const freq2 = 880;
-    const envelope = Math.min(1, (duration - t) * 2) * Math.min(1, t * 10);
-    data[i] = envelope * 0.3 * (
+    const envelope = Math.min(1, cycleTime * 10) * Math.min(1, (2 - cycleTime) * 5);
+    const fadeOut = t > 18 ? (20 - t) / 2 : 1;
+    data[i] = envelope * fadeOut * 0.3 * (
       Math.sin(2 * Math.PI * freq1 * t) +
       0.5 * Math.sin(2 * Math.PI * freq2 * t) +
       0.25 * Math.sin(2 * Math.PI * freq1 * 2 * t)
