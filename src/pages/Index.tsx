@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GraduationCap, Loader2 } from "lucide-react";
-import UploadForm from "@/components/UploadForm";
+import UploadForm, { GradeLevel } from "@/components/UploadForm";
 import SubjectPicker from "@/components/SubjectPicker";
 import StudyPlanView from "@/components/StudyPlanView";
 import { Subject, generateStudyPlan } from "@/lib/planGenerator";
@@ -32,12 +32,13 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const reminder = useStudyReminder();
 
-  const handleFilesReady = async (syllabus: File, datesheet: File) => {
+  const handleFilesReady = async (syllabus: File, datesheet: File, grade: GradeLevel) => {
     setIsProcessing(true);
     try {
       const formData = new FormData();
       formData.append("syllabus", syllabus);
       formData.append("datesheet", datesheet);
+      formData.append("grade", grade);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pdfs`,

@@ -3,9 +3,19 @@ import { motion } from "framer-motion";
 import { Upload, FileText, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+
+export type GradeLevel = "6" | "7" | "8" | "9" | "11";
 
 interface UploadFormProps {
-  onFilesReady: (syllabus: File, datesheet: File) => void;
+  onFilesReady: (syllabus: File, datesheet: File, grade: GradeLevel) => void;
   isProcessing?: boolean;
 }
 
@@ -110,19 +120,46 @@ const DropZone = ({ label, description, file, onFile, onClear }: DropZoneProps) 
   );
 };
 
+const GRADE_OPTIONS: { value: GradeLevel; label: string }[] = [
+  { value: "6", label: "Class 6 (Form VI)" },
+  { value: "7", label: "Class 7 (Form VII)" },
+  { value: "8", label: "Class 8 (Form VIII)" },
+  { value: "9", label: "Class 9 (Form IX)" },
+  { value: "11", label: "Class 11 (Form XI)" },
+];
+
 const UploadForm = ({ onFilesReady, isProcessing }: UploadFormProps) => {
   const [syllabus, setSyllabus] = useState<File | null>(null);
   const [datesheet, setDatesheet] = useState<File | null>(null);
+  const [grade, setGrade] = useState<GradeLevel | null>(null);
 
-  const canGenerate = syllabus && datesheet && !isProcessing;
+  const canGenerate = syllabus && datesheet && grade && !isProcessing;
 
   return (
     <div className="space-y-6">
       <Card className="p-6 border-border/60 bg-card shadow-sm">
         <h2 className="text-lg font-semibold text-foreground mb-1">Upload Your Files</h2>
         <p className="text-sm text-muted-foreground mb-5">
-          Drop your syllabus and datesheet PDFs below — we'll extract everything and build your plan automatically.
+          Select your class and upload your syllabus and datesheet PDFs. We'll extract everything and build your plan automatically.
         </p>
+
+        <div className="mb-5">
+          <Label htmlFor="grade-select" className="text-sm font-medium mb-2 block">
+            Select Your Class
+          </Label>
+          <Select value={grade || ""} onValueChange={(v) => setGrade(v as GradeLevel)}>
+            <SelectTrigger id="grade-select" className="w-full">
+              <SelectValue placeholder="Choose your class/form" />
+            </SelectTrigger>
+            <SelectContent>
+              {GRADE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <DropZone
@@ -143,7 +180,7 @@ const UploadForm = ({ onFilesReady, isProcessing }: UploadFormProps) => {
       </Card>
 
       <Button
-        onClick={() => canGenerate && onFilesReady(syllabus!, datesheet!)}
+        onClick={() => canGenerate && onFilesReady(syllabus!, datesheet!, grade!)}
         disabled={!canGenerate}
         className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
         size="lg"
