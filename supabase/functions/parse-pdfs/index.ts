@@ -95,31 +95,90 @@ const GRADE_SUBJECT_MAP: Record<string, string[]> = {
 
 function extractDatesForGrade(datesheetText: string, grade: string): Map<string, string> {
   const subjectDateMap = new Map<string, string>();
-  const datePattern = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g;
   const text = datesheetText.toUpperCase();
   const allowedSubjects = GRADE_SUBJECT_MAP[grade] || KNOWN_SUBJECTS;
+  const lines = text.split(/\n/);
 
-  let match;
-  while ((match = datePattern.exec(text)) !== null) {
-    const [fullMatch, day, month, year] = match;
-    const fullYear = year.length === 2 ? `20${year}` : year;
-    const isoDate = `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  const gradeColumnIndex = getGradeColumnIndex(grade);
 
-    const startIdx = Math.max(0, match.index - 30);
-    const endIdx = Math.min(text.length, match.index + fullMatch.length + 500);
-    const contextLine = text.substring(startIdx, endIdx);
+  let currentDate = "";
+
+  for (const line of lines) {
+    const dateMatch = line.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    if (dateMatch) {
+      const [, day, month, year] = dateMatch;
+      const fullYear = year.length === 2 ? `20${year}` : year;
+      currentDate = `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
+
+    if (!currentDate) continue;
 
     for (const subject of allowedSubjects) {
-      if (contextLine.includes(subject)) {
-        const existing = subjectDateMap.get(subject);
-        if (!existing || isoDate < existing) {
-          subjectDateMap.set(subject, isoDate);
+      if (line.includes(subject)) {
+        const subjectIndex = line.indexOf(subject);
+        const gradeHeaders = ["6TH", "7TH", "8TH", "9TH", "11TH"];
+        const headerLine = lines.find(l => gradeHeaders.some(h => l.includes(h)));
+
+        let isCorrectColumn = true;
+        if (headerLine) {
+          const targetHeader = grade === "11" ? "11TH" : `${grade}TH`;
+          const targetPos = headerLine.indexOf(targetHeader);
+          const otherGrades = gradeHeaders.filter(h => h !== targetHeader);
+
+          for (const otherGrade of otherGrades) {
+            const otherPos = headerLine.indexOf(otherGrade);
+            if (otherPos !== -1) {
+              const otherSubjectAtPos = line.substring(
+                Math.max(0, otherPos - 20),
+                Math.min(line.length, otherPos + 80)
+              );
+              if (otherSubjectAtPos.includes(subject) && Math.abs(subjectIndex - otherPos) < Math.abs(subjectIndex - targetPos)) {
+                isCorrectColumn = false;
+                break;
+              }
+            }
+          }
+        }
+
+        if (isCorrectColumn || !headerLine) {
+          const existing = subjectDateMap.get(subject);
+          if (!existing || currentDate < existing) {
+            subjectDateMap.set(subject, currentDate);
+          }
+        }
+      }
+    }
+  }
+
+  if (subjectDateMap.size === 0) {
+    const datePattern = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g;
+    let match;
+    while ((match = datePattern.exec(text)) !== null) {
+      const [fullMatch, day, month, year] = match;
+      const fullYear = year.length === 2 ? `20${year}` : year;
+      const isoDate = `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+
+      const startIdx = Math.max(0, match.index - 30);
+      const endIdx = Math.min(text.length, match.index + fullMatch.length + 500);
+      const contextLine = text.substring(startIdx, endIdx);
+
+      for (const subject of allowedSubjects) {
+        if (contextLine.includes(subject)) {
+          const existing = subjectDateMap.get(subject);
+          if (!existing || isoDate < existing) {
+            subjectDateMap.set(subject, isoDate);
+          }
         }
       }
     }
   }
 
   return subjectDateMap;
+}
+
+function getGradeColumnIndex(grade: string): number {
+  const gradeOrder = ["6", "7", "8", "9", "11"];
+  return gradeOrder.indexOf(grade);
 }
 
 function extractSubjectsFromSyllabus(syllabusText: string, grade: string): Map<string, string[]> {
