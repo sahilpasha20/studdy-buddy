@@ -14,10 +14,26 @@ async function extractTextFromPDF(pdfBytes: Uint8Array): Promise<string> {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item: any) => item.str)
-      .join(" ");
-    fullText += pageText + "\n";
+
+    let lastY = -1;
+    let lineText = "";
+
+    for (const item of textContent.items as any[]) {
+      const y = Math.round(item.transform[5]);
+
+      if (lastY !== -1 && Math.abs(y - lastY) > 5) {
+        fullText += lineText.trim() + "\n";
+        lineText = "";
+      }
+
+      lineText += item.str + " ";
+      lastY = y;
+    }
+
+    if (lineText.trim()) {
+      fullText += lineText.trim() + "\n";
+    }
+    fullText += "\n";
   }
 
   return fullText;
@@ -28,17 +44,14 @@ const KNOWN_SUBJECTS = [
   "ENGLISH LANGUAGE",
   "HINDI",
   "MATHEMATICS",
-  "MATH",
   "SCIENCE",
   "HISTORY & CIVICS",
   "HISTORY",
-  "CIVICS",
   "GEOGRAPHY",
   "SANSKRIT",
   "FRENCH",
   "SPANISH",
   "COMPUTER STUDIES",
-  "COMPUTER",
   "PHYSICS",
   "CHEMISTRY",
   "BIOLOGY",
@@ -48,14 +61,8 @@ const KNOWN_SUBJECTS = [
   "COMMERCE",
   "ACCOUNTS",
   "POLITICAL SCIENCE",
-  "POL SC",
   "EVS",
-  "CS",
-  "ART",
-  "GROUP III",
 ];
-
-const GRADE_COLUMN_ORDER = ["6", "7", "8", "9", "11"];
 
 const GRADE_SUBJECT_MAP: Record<string, string[]> = {
   "6": [
@@ -74,35 +81,17 @@ const GRADE_SUBJECT_MAP: Record<string, string[]> = {
     "CHEMISTRY", "MATHEMATICS"
   ],
   "9": [
-    "ENGLISH LITERATURE", "MATH", "MATHEMATICS", "HINDI", "FRENCH", "SPANISH",
-    "GEOGRAPHY", "HISTORY & CIVICS", "ENGLISH LANGUAGE", "PHY", "PHYSICS",
-    "EVS", "ECO", "ECONOMICS", "CHEMISTRY", "BIOLOGY", "GROUP III", "ART"
+    "ENGLISH LITERATURE", "MATHEMATICS", "HINDI", "FRENCH", "SPANISH",
+    "GEOGRAPHY", "HISTORY & CIVICS", "ENGLISH LANGUAGE", "PHYSICS",
+    "EVS", "ECONOMICS", "CHEMISTRY", "BIOLOGY"
   ],
   "11": [
-    "MATHEMATICS", "ENGLISH LANGUAGE", "HIST", "HISTORY", "EVS",
-    "PHY", "PHYSICS", "COMMERCE", "ENGLISH LITERATURE", "PSYCHOLOGY",
-    "CHEM", "CHEMISTRY", "POL SC", "POLITICAL SCIENCE", "GEO", "GEOGRAPHY",
-    "ACCOUNTS", "SOCIOLOGY", "ECONOMICS", "BIO", "BIOLOGY", "COMP SC",
-    "COMPUTER SCIENCE", "ART"
+    "MATHEMATICS", "ENGLISH LANGUAGE", "HISTORY", "EVS",
+    "PHYSICS", "COMMERCE", "ENGLISH LITERATURE", "PSYCHOLOGY",
+    "CHEMISTRY", "POLITICAL SCIENCE", "GEOGRAPHY",
+    "ACCOUNTS", "SOCIOLOGY", "ECONOMICS", "BIOLOGY", "COMPUTER SCIENCE"
   ]
 };
-
-function normalizeSubjectName(name: string): string {
-  const normalizations: Record<string, string> = {
-    "MATH": "MATHEMATICS",
-    "PHY": "PHYSICS",
-    "CHEM": "CHEMISTRY",
-    "BIO": "BIOLOGY",
-    "GEO": "GEOGRAPHY",
-    "HIST": "HISTORY",
-    "POL SC": "POLITICAL SCIENCE",
-    "COMP SC": "COMPUTER SCIENCE",
-    "COMP": "COMPUTER STUDIES",
-    "ECO": "ECONOMICS",
-    "CS": "COMPUTER STUDIES",
-  };
-  return normalizations[name] || name;
-}
 
 function extractDatesForGrade(datesheetText: string, grade: string): Map<string, string> {
   const subjectDateMap = new Map<string, string>();
@@ -116,16 +105,15 @@ function extractDatesForGrade(datesheetText: string, grade: string): Map<string,
     const fullYear = year.length === 2 ? `20${year}` : year;
     const isoDate = `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 
-    const startIdx = Math.max(0, match.index - 20);
-    const endIdx = Math.min(text.length, match.index + fullMatch.length + 400);
+    const startIdx = Math.max(0, match.index - 30);
+    const endIdx = Math.min(text.length, match.index + fullMatch.length + 500);
     const contextLine = text.substring(startIdx, endIdx);
 
     for (const subject of allowedSubjects) {
       if (contextLine.includes(subject)) {
-        const normalizedName = normalizeSubjectName(subject);
-        const existing = subjectDateMap.get(normalizedName);
+        const existing = subjectDateMap.get(subject);
         if (!existing || isoDate < existing) {
-          subjectDateMap.set(normalizedName, isoDate);
+          subjectDateMap.set(subject, isoDate);
         }
       }
     }
@@ -136,51 +124,67 @@ function extractDatesForGrade(datesheetText: string, grade: string): Map<string,
 
 function extractSubjectsFromSyllabus(syllabusText: string, grade: string): Map<string, string[]> {
   const subjectChapters = new Map<string, string[]>();
-  const lines = syllabusText.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 0);
   const allowedSubjects = GRADE_SUBJECT_MAP[grade] || KNOWN_SUBJECTS;
+  const text = syllabusText;
+  const upperText = text.toUpperCase();
 
-  let currentSubject = "";
-  let chapters: string[] = [];
+  const subjectPositions: { subject: string; position: number }[] = [];
+
+  for (const subject of allowedSubjects) {
+    const pattern = new RegExp(`\\b${subject.replace(/[&]/g, '\\$&')}\\b`, 'gi');
+    let match;
+    while ((match = pattern.exec(upperText)) !== null) {
+      const beforeChar = match.index > 0 ? upperText[match.index - 1] : ' ';
+      const afterChar = match.index + match[0].length < upperText.length
+        ? upperText[match.index + match[0].length]
+        : ' ';
+
+      if (/[\s\n]/.test(beforeChar) && /[\s\n]/.test(afterChar)) {
+        subjectPositions.push({ subject, position: match.index });
+        break;
+      }
+    }
+  }
+
+  subjectPositions.sort((a, b) => a.position - b.position);
+
+  for (let i = 0; i < subjectPositions.length; i++) {
+    const { subject, position } = subjectPositions[i];
+    const nextPosition = i < subjectPositions.length - 1
+      ? subjectPositions[i + 1].position
+      : text.length;
+
+    const sectionText = text.substring(position, nextPosition);
+    const chapters = extractChaptersFromSection(sectionText, subject);
+
+    if (chapters.length > 0) {
+      subjectChapters.set(subject, chapters);
+    }
+  }
+
+  return subjectChapters;
+}
+
+function extractChaptersFromSection(sectionText: string, subject: string): string[] {
+  const chapters: string[] = [];
+  const lines = sectionText.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+
   let currentSection = "";
-  let inGrammarSection = false;
+  let skipSubjectLine = true;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const line of lines) {
     const upperLine = line.toUpperCase();
 
-    const matchedSubject = allowedSubjects.find(s => {
-      const upperS = s.toUpperCase();
-      return (
-        upperLine === upperS ||
-        (upperLine.startsWith(upperS) && upperLine.length < upperS.length + 10) ||
-        (upperLine.includes(upperS) && !upperLine.includes("PAGE") && upperLine.length < upperS.length + 20)
-      );
-    });
-
-    if (matchedSubject) {
-      if (currentSubject && chapters.length > 0) {
-        const normalizedName = normalizeSubjectName(currentSubject);
-        subjectChapters.set(normalizedName, [...chapters]);
-      }
-      currentSubject = matchedSubject.toUpperCase();
-      chapters = [];
-      currentSection = "";
-      inGrammarSection = false;
+    if (skipSubjectLine && upperLine.includes(subject)) {
+      skipSubjectLine = false;
       continue;
     }
 
-    if (!currentSubject) continue;
-
-    const sectionHeaders = ["PROSE", "POETRY", "GRAMMAR", "CHAPTER", "UNIT", "MODULE", "REFERENCE BOOK"];
-    const matchedSection = sectionHeaders.find(s =>
-      upperLine === s ||
-      upperLine.startsWith(s + " ") ||
-      upperLine.startsWith(s + "-")
-    );
-
-    if (matchedSection) {
-      currentSection = matchedSection;
-      inGrammarSection = matchedSection === "GRAMMAR";
+    if (/^(PROSE|POETRY|GRAMMAR|CHAPTER|UNIT|MODULE)\b/i.test(line)) {
+      const match = line.match(/^(PROSE|POETRY|GRAMMAR|CHAPTER|UNIT|MODULE)/i);
+      if (match) {
+        currentSection = match[1].toUpperCase();
+      }
       continue;
     }
 
@@ -189,60 +193,56 @@ function extractSubjectsFromSyllabus(syllabusText: string, grade: string): Map<s
       /^THE SHRI RAM/i,
       /^FORM\s+[VIX]+/i,
       /^TERM\s+\d/i,
-      /^CLUSTER\s+TEST/i,
+      /^CLUSTER/i,
       /^SYLLABUS/i,
-      /^PAGE\s+\d/i,
-      /^REFERENCE\s+BOOK/i,
+      /^PAGE\s*\d/i,
+      /^REFERENCE/i,
       /^20\d{2}/,
       /^QUE GUAY/i,
       /^MON PASSEPORT/i,
       /^LESSON\s+\d/i,
+      /^साहित्य/,
+      /^व्याकरण/,
     ];
 
     if (skipPatterns.some(p => p.test(line))) continue;
 
-    if (inGrammarSection) {
-      const grammarItemMatch = line.match(/^[a-z][\.\)]\s*(.+)/i);
-      if (grammarItemMatch) {
-        chapters.push(`Grammar: ${grammarItemMatch[1].trim()}`);
-        continue;
+    const numberedMatch = line.match(/^(\d+)[\.\)]\s*(.+)/);
+    if (numberedMatch) {
+      let chapterName = numberedMatch[2].trim();
+
+      chapterName = chapterName.replace(/\s*[\(\[].*?[\)\]]$/, '').trim();
+
+      if (chapterName.length > 2 && chapterName.length < 150) {
+        if (currentSection && currentSection !== "GRAMMAR") {
+          chapters.push(`${currentSection}: ${chapterName}`);
+        } else {
+          chapters.push(chapterName);
+        }
       }
+      continue;
     }
 
-    const isChapterLine =
-      /^\d+[\.\)]\s+/.test(line) ||
-      /^[•\-]\s+/.test(line) ||
-      (line.length > 3 && line.length < 150 && /^[A-Z]/.test(line) &&
-       !allowedSubjects.some(s => upperLine === s.toUpperCase()));
-
-    if (isChapterLine) {
-      let cleanChapter = line
-        .replace(/^\d+[\.\)]\s*/, "")
-        .replace(/^[•\-]\s*/, "")
-        .trim();
-
-      if (cleanChapter.length > 2 && cleanChapter.length < 150) {
-        if (currentSection && currentSection !== "GRAMMAR" &&
-            !cleanChapter.toLowerCase().includes(currentSection.toLowerCase())) {
-          cleanChapter = `${currentSection}: ${cleanChapter}`;
-        }
-        const isDuplicate = chapters.some(c =>
-          c.toLowerCase() === cleanChapter.toLowerCase() ||
-          c.toLowerCase().includes(cleanChapter.toLowerCase())
-        );
-        if (!isDuplicate) {
-          chapters.push(cleanChapter);
-        }
+    const letterMatch = line.match(/^[a-z][\.\)]\s*(.+)/i);
+    if (letterMatch && currentSection === "GRAMMAR") {
+      const topic = letterMatch[1].trim();
+      if (topic.length > 2 && topic.length < 100) {
+        chapters.push(`Grammar: ${topic}`);
       }
+      continue;
+    }
+
+    const bulletMatch = line.match(/^[•\-]\s*(.+)/);
+    if (bulletMatch) {
+      const item = bulletMatch[1].trim();
+      if (item.length > 2 && item.length < 150) {
+        chapters.push(item);
+      }
+      continue;
     }
   }
 
-  if (currentSubject && chapters.length > 0) {
-    const normalizedName = normalizeSubjectName(currentSubject);
-    subjectChapters.set(normalizedName, chapters);
-  }
-
-  return subjectChapters;
+  return chapters;
 }
 
 function parseSubjectsFromText(syllabusText: string, datesheetText: string, grade: string) {
@@ -269,7 +269,7 @@ function parseSubjectsFromText(syllabusText: string, datesheetText: string, grad
 
         const hasMatch = subjectWords.some(sw =>
           dateWords.some(dw =>
-            sw.length > 2 && dw.length > 2 &&
+            sw.length > 3 && dw.length > 3 &&
             (sw === dw || sw.includes(dw) || dw.includes(sw))
           )
         );
@@ -326,8 +326,8 @@ Deno.serve(async (req) => {
     const datesheetText = await extractTextFromPDF(datesheetBytes);
 
     console.log("Grade selected:", grade);
-    console.log("Syllabus text preview:", syllabusText.substring(0, 1500));
-    console.log("Datesheet text preview:", datesheetText.substring(0, 1500));
+    console.log("Syllabus text preview:", syllabusText.substring(0, 2000));
+    console.log("Datesheet text preview:", datesheetText.substring(0, 2000));
 
     const subjects = parseSubjectsFromText(syllabusText, datesheetText, grade);
 
@@ -339,8 +339,8 @@ Deno.serve(async (req) => {
           error: "Could not extract subjects from PDFs. Please ensure they contain valid syllabus and exam date information for your selected grade.",
           debug: {
             grade,
-            syllabusPreview: syllabusText.substring(0, 1500),
-            datesheetPreview: datesheetText.substring(0, 1500)
+            syllabusPreview: syllabusText.substring(0, 2000),
+            datesheetPreview: datesheetText.substring(0, 2000)
           }
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
