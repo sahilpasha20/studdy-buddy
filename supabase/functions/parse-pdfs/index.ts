@@ -201,12 +201,21 @@ Deno.serve(async (req) => {
     const syllabusText = await extractTextFromPDF(syllabusBytes);
     const datesheetText = await extractTextFromPDF(datesheetBytes);
 
+    console.log("Syllabus text preview:", syllabusText.substring(0, 500));
+    console.log("Datesheet text preview:", datesheetText.substring(0, 500));
+
     const subjects = parseSubjectsFromText(syllabusText, datesheetText);
+
+    console.log("Extracted subjects:", subjects.length);
 
     if (subjects.length === 0) {
       return new Response(
         JSON.stringify({
-          error: "Could not extract subjects from PDFs. Please ensure they contain valid syllabus and exam date information."
+          error: "Could not extract subjects from PDFs. Please ensure they contain valid syllabus and exam date information.",
+          debug: {
+            syllabusPreview: syllabusText.substring(0, 500),
+            datesheetPreview: datesheetText.substring(0, 500)
+          }
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
