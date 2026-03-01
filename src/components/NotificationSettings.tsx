@@ -1,4 +1,5 @@
-import { Bell, BellOff, Volume2, VolumeX, TestTube } from "lucide-react";
+import { useState } from "react";
+import { Bell, BellOff, Volume2, VolumeX, TestTube, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { testNotification, isNotificationSupported, isInIframe } from "@/lib/notifications";
+import { testNotification, isNotificationSupported, isInIframe, stopNotificationSound } from "@/lib/notifications";
 import { toast } from "sonner";
 import { ExternalLink } from "lucide-react";
 
@@ -31,13 +32,25 @@ export function NotificationSettings({
   onRequestPermission,
   onToggleSound,
 }: NotificationSettingsProps) {
+  const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
+
   const handleTestNotification = () => {
     const success = testNotification(soundEnabled);
     if (success) {
       toast.success("Test notification sent!");
+      if (soundEnabled) {
+        setIsAlarmPlaying(true);
+        setTimeout(() => setIsAlarmPlaying(false), 20000);
+      }
     } else {
       toast.error("Failed to send test notification");
     }
+  };
+
+  const handleStopAlarm = () => {
+    stopNotificationSound();
+    setIsAlarmPlaying(false);
+    toast.success("Alarm stopped");
   };
 
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,14 +221,26 @@ export function NotificationSettings({
           </div>
         </div>
 
-        <Button
-          onClick={handleTestNotification}
-          variant="secondary"
-          className="w-full"
-        >
-          <TestTube className="h-4 w-4 mr-2" />
-          Test Alarm
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleTestNotification}
+            variant="secondary"
+            className="flex-1"
+            disabled={isAlarmPlaying}
+          >
+            <TestTube className="h-4 w-4 mr-2" />
+            Test Alarm
+          </Button>
+          {isAlarmPlaying && (
+            <Button
+              onClick={handleStopAlarm}
+              variant="destructive"
+            >
+              <Square className="h-4 w-4 mr-2" />
+              Stop
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
