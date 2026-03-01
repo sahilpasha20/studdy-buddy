@@ -5,7 +5,15 @@ import {
   requestNotificationPermission,
   showStudyNotification,
   isNotificationSupported,
+  playNotificationSound,
 } from "@/lib/notifications";
+import {
+  createReminderWorker,
+  startReminderWorker,
+  stopReminderWorker,
+  updateReminderTime,
+  terminateReminderWorker,
+} from "@/lib/reminderWorker";
 
 export function useStudyReminder() {
   const [reminderTime, setReminderTime] = useState<string>(
@@ -22,7 +30,58 @@ export function useStudyReminder() {
     () => localStorage.getItem("study-reminder-sound") !== "false"
   );
 
-  const lastFiredRef = useRef("");
+  const workerInitializedRef = useRef(false);
+  const soundEnabledRef = useRef(soundEnabled);
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+
+  const triggerReminder = useCallback(() => {
+    const notificationShown = showStudyNotification({
+      title: "Time to Study!",
+      body: "Open your study plan and get started with today's tasks!",
+      requireInteraction: true,
+      playSound: soundEnabledRef.current,
+    });
+
+    if (!notificationShown && soundEnabledRef.current) {
+      playNotificationSound();
+    }
+
+    if (!notificationShown) {
+      toast("Time to study!", {
+        description: "Open your study plan and get started!",
+        duration: 15000,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!workerInitializedRef.current) {
+      createReminderWorker(triggerReminder);
+      workerInitializedRef.current = true;
+    }
+
+    return () => {
+      terminateReminderWorker();
+      workerInitializedRef.current = false;
+    };
+  }, [triggerReminder]);
+
+  useEffect(() => {
+    if (reminderEnabled && reminderTime) {
+      startReminderWorker(reminderTime);
+    } else {
+      stopReminderWorker();
+    }
+  }, [reminderEnabled, reminderTime]);
+
+  useEffect(() => {
+    if (reminderEnabled && reminderTime) {
+      updateReminderTime(reminderTime);
+    }
+  }, [reminderTime, reminderEnabled]);
 
   const requestPermission = useCallback(async () => {
     const result = await requestNotificationPermission();
@@ -65,6 +124,7 @@ export function useStudyReminder() {
     localStorage.removeItem("study-reminder-time");
     setReminderTime("");
     setReminderEnabled(false);
+    stopReminderWorker();
     toast.info("Reminder turned off.");
   }, []);
 
@@ -72,45 +132,6 @@ export function useStudyReminder() {
     localStorage.setItem("study-reminder-sound", String(enabled));
     setSoundEnabled(enabled);
   }, []);
-
-  useEffect(() => {
-    if (!reminderEnabled || !reminderTime) return;
-
-    const check = () => {
-      const now = new Date();
-      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(
-        now.getMinutes()
-      ).padStart(2, "0")}`;
-
-      if (currentTime === reminderTime && lastFiredRef.current !== currentTime) {
-        lastFiredRef.current = currentTime;
-
-        const notificationShown = showStudyNotification({
-          title: "Time to Study!",
-          body: "Open your study plan and get started with today's tasks!",
-          requireInteraction: true,
-          playSound: soundEnabled,
-        });
-
-        if (!notificationShown && soundEnabled) {
-          import("@/lib/notifications").then(({ playNotificationSound }) => {
-            playNotificationSound();
-          });
-        }
-
-        if (!notificationShown) {
-          toast("Time to study!", {
-            description: "Open your study plan and get started!",
-            duration: 15000,
-          });
-        }
-      }
-    };
-
-    check();
-    const interval = setInterval(check, 10_000);
-    return () => clearInterval(interval);
-  }, [reminderEnabled, reminderTime, soundEnabled]);
 
   return {
     reminderTime,
