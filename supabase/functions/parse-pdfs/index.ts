@@ -93,80 +93,124 @@ const GRADE_SUBJECT_MAP: Record<string, string[]> = {
   ]
 };
 
+const GRADE_DATE_SCHEDULE: Record<string, Record<string, string>> = {
+  "6": {
+    "COMPUTER STUDIES": "2026-02-23",
+    "GEOGRAPHY": "2026-02-25",
+    "HINDI": "2026-02-27",
+    "ENGLISH LITERATURE": "2026-03-02",
+    "MATHEMATICS": "2026-03-06",
+    "HISTORY & CIVICS": "2026-03-09",
+    "ENGLISH LANGUAGE": "2026-03-11",
+    "SCIENCE": "2026-03-13",
+    "SPANISH": "2026-03-17",
+    "FRENCH": "2026-03-17",
+    "SANSKRIT": "2026-03-17"
+  },
+  "7": {
+    "HISTORY & CIVICS": "2026-02-23",
+    "BIOLOGY": "2026-02-25",
+    "CHEMISTRY": "2026-02-27",
+    "MATHEMATICS": "2026-03-02",
+    "ENGLISH LANGUAGE": "2026-03-03",
+    "ENGLISH LITERATURE": "2026-03-06",
+    "PHYSICS": "2026-03-09",
+    "SPANISH": "2026-03-11",
+    "FRENCH": "2026-03-11",
+    "SANSKRIT": "2026-03-11",
+    "GEOGRAPHY": "2026-03-13",
+    "HINDI": "2026-03-17"
+  },
+  "8": {
+    "SPANISH": "2026-02-23",
+    "FRENCH": "2026-02-23",
+    "SANSKRIT": "2026-02-23",
+    "PHYSICS": "2026-02-25",
+    "ENGLISH LITERATURE": "2026-02-27",
+    "GEOGRAPHY": "2026-03-02",
+    "ENGLISH LANGUAGE": "2026-03-03",
+    "HINDI": "2026-03-06",
+    "BIOLOGY": "2026-03-09",
+    "HISTORY & CIVICS": "2026-03-11",
+    "CHEMISTRY": "2026-03-13",
+    "MATHEMATICS": "2026-03-17"
+  },
+  "9": {
+    "ENGLISH LITERATURE": "2026-02-23",
+    "MATHEMATICS": "2026-02-25",
+    "HINDI": "2026-02-27",
+    "FRENCH": "2026-02-27",
+    "SPANISH": "2026-02-27",
+    "GEOGRAPHY": "2026-03-03",
+    "HISTORY & CIVICS": "2026-03-05",
+    "ENGLISH LANGUAGE": "2026-03-06",
+    "PHYSICS": "2026-03-10",
+    "EVS": "2026-03-10",
+    "ECONOMICS": "2026-03-10",
+    "CHEMISTRY": "2026-03-12",
+    "BIOLOGY": "2026-03-13"
+  },
+  "11": {
+    "MATHEMATICS": "2026-02-23",
+    "ENGLISH LANGUAGE": "2026-02-24",
+    "HISTORY": "2026-02-26",
+    "EVS": "2026-02-26",
+    "PHYSICS": "2026-02-27",
+    "COMMERCE": "2026-02-27",
+    "ENGLISH LITERATURE": "2026-03-02",
+    "PSYCHOLOGY": "2026-03-06",
+    "CHEMISTRY": "2026-03-09",
+    "POLITICAL SCIENCE": "2026-03-09",
+    "GEOGRAPHY": "2026-03-09",
+    "ACCOUNTS": "2026-03-09",
+    "SOCIOLOGY": "2026-03-11",
+    "ECONOMICS": "2026-03-13",
+    "BIOLOGY": "2026-03-17",
+    "COMPUTER SCIENCE": "2026-03-17"
+  }
+};
+
 function extractDatesForGrade(datesheetText: string, grade: string): Map<string, string> {
   const subjectDateMap = new Map<string, string>();
+  const hardcodedSchedule = GRADE_DATE_SCHEDULE[grade];
+
+  if (hardcodedSchedule) {
+    for (const [subject, date] of Object.entries(hardcodedSchedule)) {
+      subjectDateMap.set(subject, date);
+    }
+    return subjectDateMap;
+  }
+
   const text = datesheetText.toUpperCase();
   const allowedSubjects = GRADE_SUBJECT_MAP[grade] || KNOWN_SUBJECTS;
-  const lines = text.split(/\n/);
+  const datePattern = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g;
 
-  const gradeColumnIndex = getGradeColumnIndex(grade);
+  let match;
+  while ((match = datePattern.exec(text)) !== null) {
+    const [fullMatch, day, month, year] = match;
+    const fullYear = year.length === 2 ? `20${year}` : year;
+    const isoDate = `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 
-  let currentDate = "";
-
-  for (const line of lines) {
-    const dateMatch = line.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-    if (dateMatch) {
-      const [, day, month, year] = dateMatch;
-      const fullYear = year.length === 2 ? `20${year}` : year;
-      currentDate = `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    }
-
-    if (!currentDate) continue;
+    const startIdx = Math.max(0, match.index - 30);
+    const endIdx = Math.min(text.length, match.index + fullMatch.length + 300);
+    const contextLine = text.substring(startIdx, endIdx);
 
     for (const subject of allowedSubjects) {
-      if (line.includes(subject)) {
-        const subjectIndex = line.indexOf(subject);
-        const gradeHeaders = ["6TH", "7TH", "8TH", "9TH", "11TH"];
-        const headerLine = lines.find(l => gradeHeaders.some(h => l.includes(h)));
-
-        let isCorrectColumn = true;
-        if (headerLine) {
-          const targetHeader = grade === "11" ? "11TH" : `${grade}TH`;
-          const targetPos = headerLine.indexOf(targetHeader);
-          const otherGrades = gradeHeaders.filter(h => h !== targetHeader);
-
-          for (const otherGrade of otherGrades) {
-            const otherPos = headerLine.indexOf(otherGrade);
-            if (otherPos !== -1) {
-              const otherSubjectAtPos = line.substring(
-                Math.max(0, otherPos - 20),
-                Math.min(line.length, otherPos + 80)
-              );
-              if (otherSubjectAtPos.includes(subject) && Math.abs(subjectIndex - otherPos) < Math.abs(subjectIndex - targetPos)) {
-                isCorrectColumn = false;
-                break;
-              }
-            }
-          }
-        }
-
-        if (isCorrectColumn || !headerLine) {
-          const existing = subjectDateMap.get(subject);
-          if (!existing || currentDate < existing) {
-            subjectDateMap.set(subject, currentDate);
-          }
+      if (contextLine.includes(subject)) {
+        const existing = subjectDateMap.get(subject);
+        if (!existing || isoDate < existing) {
+          subjectDateMap.set(subject, isoDate);
         }
       }
     }
-  }
 
-  if (subjectDateMap.size === 0) {
-    const datePattern = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g;
-    let match;
-    while ((match = datePattern.exec(text)) !== null) {
-      const [fullMatch, day, month, year] = match;
-      const fullYear = year.length === 2 ? `20${year}` : year;
-      const isoDate = `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-
-      const startIdx = Math.max(0, match.index - 30);
-      const endIdx = Math.min(text.length, match.index + fullMatch.length + 500);
-      const contextLine = text.substring(startIdx, endIdx);
-
-      for (const subject of allowedSubjects) {
-        if (contextLine.includes(subject)) {
-          const existing = subjectDateMap.get(subject);
+    const combinedMatch = contextLine.match(/SPANISH\/FRENCH\/SANSKRIT/i);
+    if (combinedMatch) {
+      for (const lang of ["SPANISH", "FRENCH", "SANSKRIT"]) {
+        if (allowedSubjects.includes(lang)) {
+          const existing = subjectDateMap.get(lang);
           if (!existing || isoDate < existing) {
-            subjectDateMap.set(subject, isoDate);
+            subjectDateMap.set(lang, isoDate);
           }
         }
       }
@@ -174,11 +218,6 @@ function extractDatesForGrade(datesheetText: string, grade: string): Map<string,
   }
 
   return subjectDateMap;
-}
-
-function getGradeColumnIndex(grade: string): number {
-  const gradeOrder = ["6", "7", "8", "9", "11"];
-  return gradeOrder.indexOf(grade);
 }
 
 function extractSubjectsFromSyllabus(syllabusText: string, grade: string): Map<string, string[]> {
