@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, getSessionId } from "@/integrations/supabase/client";
 import { Subject, DayPlan, DayTask, StudyPace } from "@/lib/planGenerator";
 import { toast } from "sonner";
 
@@ -92,12 +92,12 @@ export function useStudyPlan() {
   const savePlan = useCallback(
     async (subjects: Subject[], pace: StudyPace, generatedPlan: DayPlan[]) => {
       try {
-        // Create study plan
         const { data: planData, error: planError } = await supabase
           .from("study_plans")
           .insert({
             hours_per_day: pace.hoursPerDay,
             minutes_per_chapter: pace.minutesPerChapter,
+            session_id: getSessionId(),
           })
           .select("id")
           .single();

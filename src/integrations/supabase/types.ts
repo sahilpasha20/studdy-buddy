@@ -60,22 +60,37 @@ export type Database = {
           created_at: string
           hours_per_day: number
           id: string
+          minutes_per_chapter: number | null
+          notification_message: string | null
+          notification_sound_enabled: boolean | null
+          notification_title: string | null
           reminder_enabled: boolean
           reminder_time: string | null
+          session_id: string | null
         }
         Insert: {
           created_at?: string
           hours_per_day?: number
           id?: string
+          minutes_per_chapter?: number | null
+          notification_message?: string | null
+          notification_sound_enabled?: boolean | null
+          notification_title?: string | null
           reminder_enabled?: boolean
           reminder_time?: string | null
+          session_id?: string | null
         }
         Update: {
           created_at?: string
           hours_per_day?: number
           id?: string
+          minutes_per_chapter?: number | null
+          notification_message?: string | null
+          notification_sound_enabled?: boolean | null
+          notification_title?: string | null
           reminder_enabled?: boolean
           reminder_time?: string | null
+          session_id?: string | null
         }
         Relationships: []
       }
