@@ -114,10 +114,10 @@ const Index = () => {
             <GraduationCap className="w-7 h-7 text-primary" />
           </div>
           <h1 className="font-display text-4xl md:text-5xl text-foreground mb-2">
-            Study Planner
+            Study Buddy
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Upload your syllabus and datesheet PDFs — get a realistic day-by-day study plan with 1 chapter per day and 4 days of revision.
+            Your own personal AI assistant that can plan your whole exam preparation for you! Good luck!
           </p>
         </motion.div>
 
