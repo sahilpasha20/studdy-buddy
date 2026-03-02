@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -293,43 +293,60 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+              className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                  <Coffee className="w-8 h-8 text-green-600" />
+                  <span className="text-3xl">🎉</span>
                 </div>
                 {breakSuggestion ? (
                   <>
                     <h3 className="text-xl font-bold text-gray-900 mb-2">You Earned a Break!</h3>
                     <p className="text-gray-600 mb-4">
-                      You've completed {rewardState.chaptersCompletedToday} chapters today. Here's your reward:
+                      Amazing work! You've completed {rewardState.chaptersCompletedToday} chapters today. You deserve this!
                     </p>
-                    <div className="bg-green-50 rounded-xl p-4 mb-4">
-                      <p className="text-lg font-semibold text-green-700">{breakSuggestion}</p>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 mb-4 border border-green-200">
+                      <p className="text-lg font-semibold text-green-700 mb-3">Try one of these:</p>
+                      <div className="text-left space-y-2 text-sm text-gray-700">
+                        <p>🚶‍♀️ Walk around the house, even 2-3 minutes helps</p>
+                        <p>💧 Drink water and stretch your neck, shoulders, and back</p>
+                        <p>🌬️ Deep breathing - inhale 4s, hold 4s, exhale 4s, repeat 5x</p>
+                        <p>🪟 Stand near a window and just look outside</p>
+                        <p>🎵 Listen to one song - just one</p>
+                        <p>🧹 Tidy your desk quickly</p>
+                        <p>🧠 Do 5 jumping jacks or light movement</p>
+                        <p>🍎 Grab a small snack like fruit or nuts</p>
+                        <p>📝 Do a quick brain dump - write what you've understood</p>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-500">
-                      {getAvailableBreaks(rewardState.chaptersCompletedToday)} break{getAvailableBreaks(rewardState.chaptersCompletedToday) > 1 ? 's' : ''} available
+                    <p className="text-sm text-gray-500 mb-4">
+                      {getAvailableBreaks(rewardState.chaptersCompletedToday)} break{getAvailableBreaks(rewardState.chaptersCompletedToday) > 1 ? 's' : ''} available - you're doing great! 🌟
                     </p>
                   </>
                 ) : (
                   <>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">No Breaks Yet</h3>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Almost There!</h3>
                     <p className="text-gray-600 mb-4">
                       Complete 2 chapters to earn your first break! You've completed {rewardState.chaptersCompletedToday} so far.
                     </p>
-                    <div className="bg-amber-50 rounded-xl p-4">
-                      <p className="text-sm text-amber-700">Keep going - you're almost there!</p>
+                    <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                      <p className="text-sm text-amber-700">Keep going - you're almost there! 💪</p>
                     </div>
                   </>
                 )}
                 <Button
-                  className="mt-4 w-full"
+                  className="mt-4 w-full bg-green-600 hover:bg-green-700"
                   onClick={() => setShowBreakModal(false)}
                 >
-                  {breakSuggestion ? "Enjoy Your Break!" : "Back to Studying"}
+                  {breakSuggestion ? "Thanks, I'll take my break! ☕" : "Back to Studying 📚"}
                 </Button>
+                <button
+                  className="mt-2 w-full text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
+                  onClick={() => setShowBreakModal(false)}
+                >
+                  Dismiss
+                </button>
               </div>
             </motion.div>
           </motion.div>
