@@ -58,6 +58,7 @@ const typeConfig = {
 
 const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, onReminderChange, rewardState }: StudyPlanViewProps) => {
   const [showBreakModal, setShowBreakModal] = useState(false);
+  const [showBackModal, setShowBackModal] = useState(false);
   const [breakSuggestion, setBreakSuggestion] = useState("");
 
   const {
@@ -186,15 +187,25 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
               </div>
               <p className="text-[10px] text-amber-600">Today</p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBreakCheck}
-              className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
-            >
-              <Coffee className="w-3 h-3" />
-              <span className="text-xs font-medium">Check Breaks</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBreakCheck}
+                className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
+              >
+                <Coffee className="w-3 h-3" />
+                <span className="text-xs font-medium">Break</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBackModal(true)}
+                className="flex items-center gap-1 border-blue-300 text-blue-700 hover:bg-blue-50"
+              >
+                <span className="text-xs font-medium">I'm Back</span>
+              </Button>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -336,6 +347,42 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
                 >
                   Dismiss
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showBackModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowBackModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">🔥</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Great! Time to Lock In Again!</h3>
+                <p className="text-gray-600 mb-6">
+                  You're refreshed and ready to tackle the next chapter. Let's keep the momentum going!
+                </p>
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  onClick={() => setShowBackModal(false)}
+                >
+                  Let's Do This! 💪
+                </Button>
               </div>
             </motion.div>
           </motion.div>
