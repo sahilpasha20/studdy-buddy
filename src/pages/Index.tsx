@@ -24,6 +24,7 @@ const Index = () => {
     resetPlan,
     setExtractedSubjects,
     setPlan,
+    rewardState,
   } = useStudyPlan();
 
   // Derive step from state
@@ -136,6 +137,7 @@ const Index = () => {
                 checkedTasks={checkedTasks}
                 onToggleTask={toggleTask}
                 onReminderChange={saveReminderSettings}
+                rewardState={rewardState}
               />
             </motion.div>
           ) : step === "pick" ? (

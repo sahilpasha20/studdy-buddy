@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase, getSessionId } from "@/integrations/supabase/client";
 import { Subject, DayPlan, DayTask, StudyPace } from "@/lib/planGenerator";
 import { toast } from "sonner";
+import { RewardState, calculateReward } from "@/lib/rewards";
 
 export function useStudyPlan() {
   const [planId, setPlanId] = useState<string | null>(
@@ -11,6 +12,11 @@ export function useStudyPlan() {
   const [plan, setPlan] = useState<DayPlan[] | null>(null);
   const [checkedTasks, setCheckedTasks] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [rewardState, setRewardState] = useState<RewardState>({
+    totalPoints: 0,
+    chaptersCompletedToday: 0,
+    lastActivityDate: new Date().toISOString().split('T')[0],
+  });
 
   // Load existing plan from DB on mount
   useEffect(() => {
@@ -21,6 +27,21 @@ export function useStudyPlan() {
 
     const loadPlan = async () => {
       try {
+        // Load plan with reward state
+        const { data: planData } = await supabase
+          .from("study_plans")
+          .select("total_points, chapters_completed_today, last_activity_date")
+          .eq("id", planId)
+          .maybeSingle();
+
+        if (planData) {
+          setRewardState({
+            totalPoints: planData.total_points || 0,
+            chaptersCompletedToday: planData.chapters_completed_today || 0,
+            lastActivityDate: planData.last_activity_date || new Date().toISOString().split('T')[0],
+          });
+        }
+
         // Load day tasks
         const { data: tasks, error } = await supabase
           .from("day_tasks")
@@ -31,7 +52,6 @@ export function useStudyPlan() {
         if (error) throw error;
 
         if (!tasks || tasks.length === 0) {
-          // Plan was deleted or empty
           localStorage.removeItem("current-plan-id");
           setPlanId(null);
           setLoading(false);
@@ -42,7 +62,7 @@ export function useStudyPlan() {
         const dayMap = new Map<string, DayTask[]>();
         const completed = new Set<string>();
 
-        tasks.forEach((t, i) => {
+        tasks.forEach((t) => {
           const dateStr = t.date;
           if (!dayMap.has(dateStr)) dayMap.set(dateStr, []);
           dayMap.get(dateStr)!.push({
@@ -162,7 +182,26 @@ export function useStudyPlan() {
         return next;
       });
 
-      // Find the task in DB
+      // Calculate rewards
+      const { newState, event } = calculateReward(rewardState, isNowCompleted);
+      setRewardState(newState);
+
+      // Show reward notification
+      if (event) {
+        if (event.type === 'break_time') {
+          toast.success(event.message, {
+            description: event.encouragement,
+            duration: 8000,
+          });
+        } else if (event.type === 'points_earned') {
+          toast.success(`+${event.points} points!`, {
+            description: event.message,
+            duration: 4000,
+          });
+        }
+      }
+
+      // Update DB
       const { data: tasks } = await supabase
         .from("day_tasks")
         .select("id")
@@ -176,8 +215,18 @@ export function useStudyPlan() {
           .update({ is_completed: isNowCompleted })
           .eq("id", tasks[taskIndex].id);
       }
+
+      // Update reward state in DB
+      await supabase
+        .from("study_plans")
+        .update({
+          total_points: newState.totalPoints,
+          chapters_completed_today: newState.chaptersCompletedToday,
+          last_activity_date: newState.lastActivityDate,
+        })
+        .eq("id", planId);
     },
-    [planId, plan, checkedTasks]
+    [planId, plan, checkedTasks, rewardState]
   );
 
   // Save reminder settings to DB
@@ -213,5 +262,6 @@ export function useStudyPlan() {
     resetPlan,
     setExtractedSubjects,
     setPlan,
+    rewardState,
   };
 }

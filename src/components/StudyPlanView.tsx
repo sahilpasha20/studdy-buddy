@@ -1,10 +1,11 @@
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { motion } from "framer-motion";
-import { BookOpen, RefreshCw, FileText, ArrowLeft } from "lucide-react";
+import { BookOpen, RefreshCw, FileText, ArrowLeft, Star, Trophy, Coffee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NotificationSettings } from "@/components/NotificationSettings";
+import { RewardState } from "@/lib/rewards";
 
 interface StudyPlanViewProps {
   plan: DayPlan[];
@@ -22,6 +23,7 @@ interface StudyPlanViewProps {
   checkedTasks: Set<string>;
   onToggleTask: (taskKey: string) => void;
   onReminderChange: (time: string, enabled: boolean) => void;
+  rewardState: RewardState;
 }
 
 const typeConfig = {
@@ -51,7 +53,7 @@ const typeConfig = {
   },
 };
 
-const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, onReminderChange }: StudyPlanViewProps) => {
+const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, onReminderChange, rewardState }: StudyPlanViewProps) => {
   const {
     reminderTime,
     reminderEnabled,
@@ -62,6 +64,15 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     requestPermission,
     toggleSound,
   } = reminder;
+
+  const getProgressMessage = () => {
+    const { chaptersCompletedToday } = rewardState;
+    if (chaptersCompletedToday === 0) return "Start studying to earn points!";
+    if (chaptersCompletedToday === 1) return "Great start! Complete 1 more for a bonus!";
+    if (chaptersCompletedToday === 2) return "Amazing! You earned a break bonus!";
+    if (chaptersCompletedToday === 3) return "Incredible! Another bonus earned!";
+    return `${chaptersCompletedToday} chapters today - you're on fire!`;
+  };
 
   const handleEnableReminder = async (time: string) => {
     await enableReminder(time);
@@ -96,6 +107,42 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
           ))}
         </div>
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6 p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+              <Trophy className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-amber-700">{rewardState.totalPoints}</span>
+                <span className="text-sm text-amber-600">points</span>
+              </div>
+              <p className="text-xs text-amber-600">{getProgressMessage()}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <div className="flex items-center gap-1">
+                <Star className="w-4 h-4 text-amber-500" />
+                <span className="text-lg font-semibold text-amber-700">{rewardState.chaptersCompletedToday}</span>
+              </div>
+              <p className="text-[10px] text-amber-600">Today</p>
+            </div>
+            {rewardState.chaptersCompletedToday >= 2 && (
+              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700">
+                <Coffee className="w-3 h-3" />
+                <span className="text-xs font-medium">Break earned!</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
 
       <div className="mb-6">
         <NotificationSettings
