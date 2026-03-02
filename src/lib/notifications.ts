@@ -77,38 +77,22 @@ export interface StudyNotificationOptions {
   playSound?: boolean;
 }
 
-let alarmInterval: ReturnType<typeof setInterval> | null = null;
+let currentAudio: HTMLAudioElement | null = null;
 let isAlarmPlaying = false;
 
-const joyfulMessages = [
-  "La la la! Time to study! You're going to do great today!",
-  "Hooray! Study time is here! Let's learn something amazing!",
-  "Yay yay yay! It's learning time! You've got this!",
-  "Tra la la! Books are calling! Time to shine bright!",
-  "Hip hip hooray! Study session starting! You're a star!",
-];
+const JOYFUL_MUSIC_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
-function speakJoyfulMessage(): void {
-  if (!('speechSynthesis' in window)) {
+function playJoyfulMusic(): void {
+  if (currentAudio) {
+    currentAudio.currentTime = 0;
+    currentAudio.play().catch(() => {});
     return;
   }
 
-  const message = joyfulMessages[Math.floor(Math.random() * joyfulMessages.length)];
-  const utterance = new SpeechSynthesisUtterance(message);
-  utterance.rate = 1.1;
-  utterance.pitch = 1.3;
-  utterance.volume = 1;
-
-  const voices = window.speechSynthesis.getVoices();
-  const preferredVoice = voices.find(v =>
-    v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Google'))
-  ) || voices.find(v => v.lang.startsWith('en'));
-
-  if (preferredVoice) {
-    utterance.voice = preferredVoice;
-  }
-
-  window.speechSynthesis.speak(utterance);
+  currentAudio = new Audio(JOYFUL_MUSIC_URL);
+  currentAudio.loop = true;
+  currentAudio.volume = 0.7;
+  currentAudio.play().catch(() => {});
 }
 
 export function playNotificationSound(): void {
@@ -116,13 +100,7 @@ export function playNotificationSound(): void {
 
   try {
     isAlarmPlaying = true;
-    speakJoyfulMessage();
-
-    alarmInterval = setInterval(() => {
-      if (isAlarmPlaying) {
-        speakJoyfulMessage();
-      }
-    }, 8000);
+    playJoyfulMusic();
   } catch (error) {
     console.error('Error playing notification sound:', error);
   }
@@ -131,13 +109,10 @@ export function playNotificationSound(): void {
 export function stopNotificationSound(): void {
   isAlarmPlaying = false;
 
-  if (alarmInterval) {
-    clearInterval(alarmInterval);
-    alarmInterval = null;
-  }
-
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
   }
 }
 

@@ -54,11 +54,12 @@ export function generateStudyPlan(subjects: Subject[], pace: StudyPace): DayPlan
   }
 
   for (const [dateStr, subjectNames] of examsByDate.entries()) {
-    daySlots.set(dateStr, subjectNames.map(name => ({
-      subject: name,
+    const combinedSubject = subjectNames.join(", ");
+    daySlots.set(dateStr, [{
+      subject: combinedSubject,
       chapters: ["Exam Day"],
       type: "exam" as const,
-    })));
+    }]);
   }
 
   const revisionsByDate = new Map<string, string[]>();
@@ -80,11 +81,12 @@ export function generateStudyPlan(subjects: Subject[], pace: StudyPace): DayPlan
 
   for (const [dateStr, subjectNames] of revisionsByDate.entries()) {
     if (!daySlots.has(dateStr)) {
-      daySlots.set(dateStr, subjectNames.map((name) => ({
-        subject: name,
+      const combinedSubject = subjectNames.join(", ");
+      daySlots.set(dateStr, [{
+        subject: combinedSubject,
         chapters: [`Revision — Review all chapters`],
         type: "revision" as const,
-      })));
+      }]);
     }
   }
 
