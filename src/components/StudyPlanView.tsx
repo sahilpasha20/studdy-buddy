@@ -1,11 +1,14 @@
+import { useState, useEffect } from "react";
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, RefreshCw, FileText, ArrowLeft, Star, Trophy, Coffee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NotificationSettings } from "@/components/NotificationSettings";
-import { RewardState } from "@/lib/rewards";
+import { RewardState, getAvailableBreaks, getRandomReward } from "@/lib/rewards";
+import confetti from "canvas-confetti";
+import { RewardEvent } from "@/lib/rewards";
 
 interface StudyPlanViewProps {
   plan: DayPlan[];
@@ -21,7 +24,7 @@ interface StudyPlanViewProps {
     toggleSound: (enabled: boolean) => void;
   };
   checkedTasks: Set<string>;
-  onToggleTask: (taskKey: string) => void;
+  onToggleTask: (taskKey: string) => Promise<RewardEvent | null | undefined>;
   onReminderChange: (time: string, enabled: boolean) => void;
   rewardState: RewardState;
 }
@@ -54,6 +57,9 @@ const typeConfig = {
 };
 
 const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, onReminderChange, rewardState }: StudyPlanViewProps) => {
+  const [showBreakModal, setShowBreakModal] = useState(false);
+  const [breakSuggestion, setBreakSuggestion] = useState("");
+
   const {
     reminderTime,
     reminderEnabled,
@@ -64,6 +70,52 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     requestPermission,
     toggleSound,
   } = reminder;
+
+  const triggerConfetti = () => {
+    const duration = 3000;
+    const end = Date.now() + duration;
+
+    const frame = () => {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#f59e0b', '#10b981', '#3b82f6'],
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#f59e0b', '#10b981', '#3b82f6'],
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    };
+
+    frame();
+  };
+
+  const handleToggleTask = async (taskKey: string) => {
+    const event = await onToggleTask(taskKey);
+    if (event?.type === 'confetti') {
+      triggerConfetti();
+    }
+  };
+
+  const handleBreakCheck = () => {
+    const breaks = getAvailableBreaks(rewardState.chaptersCompletedToday);
+    if (breaks > 0) {
+      setBreakSuggestion(getRandomReward());
+      setShowBreakModal(true);
+    } else {
+      setBreakSuggestion("");
+      setShowBreakModal(true);
+    }
+  };
 
   const getProgressMessage = () => {
     const { chaptersCompletedToday } = rewardState;
@@ -134,12 +186,15 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
               </div>
               <p className="text-[10px] text-amber-600">Today</p>
             </div>
-            {rewardState.chaptersCompletedToday >= 2 && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700">
-                <Coffee className="w-3 h-3" />
-                <span className="text-xs font-medium">Break earned!</span>
-              </div>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBreakCheck}
+              className="flex items-center gap-1 border-green-300 text-green-700 hover:bg-green-50"
+            >
+              <Coffee className="w-3 h-3" />
+              <span className="text-xs font-medium">Check Breaks</span>
+            </Button>
           </div>
         </div>
       </motion.div>
@@ -191,12 +246,12 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
                       <div
                         key={taskIndex}
                         className={`rounded-lg border ${cfg.border} ${cfg.bg} px-4 py-3 cursor-pointer transition-opacity ${isDone ? "opacity-50" : ""}`}
-                        onClick={() => onToggleTask(taskKey)}
+                        onClick={() => handleToggleTask(taskKey)}
                       >
                         <div className="flex items-center gap-3">
                           <Checkbox
                             checked={isDone}
-                            onCheckedChange={() => onToggleTask(taskKey)}
+                            onCheckedChange={() => handleToggleTask(taskKey)}
                             onClick={(e) => e.stopPropagation()}
                             className="mt-0.5"
                           />
@@ -224,6 +279,62 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
           ))}
         </div>
       </div>
+
+      <AnimatePresence>
+        {showBreakModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowBreakModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                  <Coffee className="w-8 h-8 text-green-600" />
+                </div>
+                {breakSuggestion ? (
+                  <>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">You Earned a Break!</h3>
+                    <p className="text-gray-600 mb-4">
+                      You've completed {rewardState.chaptersCompletedToday} chapters today. Here's your reward:
+                    </p>
+                    <div className="bg-green-50 rounded-xl p-4 mb-4">
+                      <p className="text-lg font-semibold text-green-700">{breakSuggestion}</p>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {getAvailableBreaks(rewardState.chaptersCompletedToday)} break{getAvailableBreaks(rewardState.chaptersCompletedToday) > 1 ? 's' : ''} available
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">No Breaks Yet</h3>
+                    <p className="text-gray-600 mb-4">
+                      Complete 2 chapters to earn your first break! You've completed {rewardState.chaptersCompletedToday} so far.
+                    </p>
+                    <div className="bg-amber-50 rounded-xl p-4">
+                      <p className="text-sm text-amber-700">Keep going - you're almost there!</p>
+                    </div>
+                  </>
+                )}
+                <Button
+                  className="mt-4 w-full"
+                  onClick={() => setShowBreakModal(false)}
+                >
+                  {breakSuggestion ? "Enjoy Your Break!" : "Back to Studying"}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

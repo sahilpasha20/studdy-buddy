@@ -5,7 +5,7 @@ export interface RewardState {
 }
 
 export interface RewardEvent {
-  type: 'points_earned' | 'milestone' | 'break_time';
+  type: 'points_earned' | 'milestone' | 'break_time' | 'points_deducted' | 'confetti';
   points?: number;
   message: string;
   encouragement?: string;
@@ -70,7 +70,15 @@ export function calculateReward(
     chaptersToday += 1;
     totalPoints += POINTS_PER_CHAPTER;
 
-    if (chaptersToday === MILESTONE_THRESHOLD || chaptersToday === 3) {
+    if (chaptersToday === 3) {
+      totalPoints += MILESTONE_BONUS;
+      event = {
+        type: 'confetti',
+        points: POINTS_PER_CHAPTER + MILESTONE_BONUS,
+        message: "3 chapters completed! You're amazing!",
+        encouragement: `+${POINTS_PER_CHAPTER + MILESTONE_BONUS} points! ${getRandomReward()}`,
+      };
+    } else if (chaptersToday === MILESTONE_THRESHOLD) {
       totalPoints += MILESTONE_BONUS;
       event = {
         type: 'break_time',
@@ -85,6 +93,18 @@ export function calculateReward(
         message: getRandomEncouragement(),
       };
     }
+  } else {
+    if (chaptersToday > 0) {
+      chaptersToday -= 1;
+      const wasAtMilestone = (chaptersToday + 1) === 2 || (chaptersToday + 1) === 3;
+      const deduction = wasAtMilestone ? POINTS_PER_CHAPTER + MILESTONE_BONUS : POINTS_PER_CHAPTER;
+      totalPoints = Math.max(0, totalPoints - deduction);
+      event = {
+        type: 'points_deducted',
+        points: -deduction,
+        message: `${deduction} points removed`,
+      };
+    }
   }
 
   return {
@@ -95,4 +115,10 @@ export function calculateReward(
     },
     event,
   };
+}
+
+export function getAvailableBreaks(chaptersCompletedToday: number): number {
+  if (chaptersCompletedToday >= 3) return 2;
+  if (chaptersCompletedToday >= 2) return 1;
+  return 0;
 }

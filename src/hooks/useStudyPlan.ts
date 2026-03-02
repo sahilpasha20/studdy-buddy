@@ -188,7 +188,12 @@ export function useStudyPlan() {
 
       // Show reward notification
       if (event) {
-        if (event.type === 'break_time') {
+        if (event.type === 'confetti') {
+          toast.success(event.message, {
+            description: event.encouragement,
+            duration: 8000,
+          });
+        } else if (event.type === 'break_time') {
           toast.success(event.message, {
             description: event.encouragement,
             duration: 8000,
@@ -197,6 +202,10 @@ export function useStudyPlan() {
           toast.success(`+${event.points} points!`, {
             description: event.message,
             duration: 4000,
+          });
+        } else if (event.type === 'points_deducted') {
+          toast.info(event.message, {
+            duration: 3000,
           });
         }
       }
@@ -225,6 +234,8 @@ export function useStudyPlan() {
           last_activity_date: newState.lastActivityDate,
         })
         .eq("id", planId);
+
+      return event;
     },
     [planId, plan, checkedTasks, rewardState]
   );
