@@ -9,6 +9,10 @@ import { NotificationSettings } from "@/components/NotificationSettings";
 import { RewardState, getAvailableBreaks, getRandomReward } from "@/lib/rewards";
 import confetti from "canvas-confetti";
 import { RewardEvent } from "@/lib/rewards";
+import ChapterCompletionPopup from "./ChapterCompletionPopup";
+import QuizImageUpload from "./QuizImageUpload";
+import QuizTypeSelector, { QuizType } from "./QuizTypeSelector";
+import QuizDisplay, { MCQQuestion, ShortLongQuestion } from "./QuizDisplay";
 
 interface StudyPlanViewProps {
   plan: DayPlan[];
@@ -62,6 +66,16 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
   const [showBackButton, setShowBackButton] = useState(false);
   const [breakSuggestion, setBreakSuggestion] = useState("");
 
+  const [showCompletionPopup, setShowCompletionPopup] = useState(false);
+  const [completedChapter, setCompletedChapter] = useState({ chapter: "", subject: "" });
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [selectedQuizType, setSelectedQuizType] = useState<QuizType>("mcq");
+  const [mcqQuestions, setMcqQuestions] = useState<MCQQuestion[]>([]);
+  const [shortLongQuestions, setShortLongQuestions] = useState<ShortLongQuestion[]>([]);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+
   const {
     reminderTime,
     reminderEnabled,
@@ -101,11 +115,80 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     frame();
   };
 
-  const handleToggleTask = async (taskKey: string) => {
+  const handleToggleTask = async (taskKey: string, task?: { subject: string; chapters: string[]; type: string }) => {
+    const wasChecked = checkedTasks.has(taskKey);
     const event = await onToggleTask(taskKey);
     if (event?.type === 'confetti') {
       triggerConfetti();
     }
+
+    if (!wasChecked && task && task.type === "study" && task.chapters.length > 0) {
+      setCompletedChapter({
+        chapter: task.chapters.join(", "),
+        subject: task.subject,
+      });
+      setShowCompletionPopup(true);
+    }
+  };
+
+  const handleTakeQuiz = () => {
+    setShowCompletionPopup(false);
+    setShowImageUpload(true);
+  };
+
+  const handleImagesReady = async (images: File[]) => {
+    setShowImageUpload(false);
+    setShowTypeSelector(true);
+  };
+
+  const handleQuizTypeSelect = async (type: QuizType) => {
+    setSelectedQuizType(type);
+    setShowTypeSelector(false);
+    setIsGeneratingQuiz(true);
+    setShowImageUpload(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("quizType", type);
+      formData.append("chapterName", completedChapter.chapter);
+      formData.append("subjectName", completedChapter.subject);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-quiz`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to generate quiz");
+      }
+
+      const data = await response.json();
+
+      if (type === "mcq" && data.mcqQuestions) {
+        setMcqQuestions(data.mcqQuestions);
+      } else if (type === "short_long" && data.shortLongQuestions) {
+        setShortLongQuestions(data.shortLongQuestions);
+      }
+
+      setShowImageUpload(false);
+      setShowQuiz(true);
+    } catch (error) {
+      console.error("Quiz generation error:", error);
+      setShowImageUpload(false);
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
+  const handleRetakeQuiz = () => {
+    setShowQuiz(false);
+    setShowTypeSelector(true);
   };
 
   const handleBreakCheck = () => {
@@ -275,12 +358,12 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
                       <div
                         key={taskIndex}
                         className={`rounded-lg border ${cfg.border} ${cfg.bg} px-4 py-3 cursor-pointer transition-opacity ${isDone ? "opacity-50" : ""}`}
-                        onClick={() => handleToggleTask(taskKey)}
+                        onClick={() => handleToggleTask(taskKey, task)}
                       >
                         <div className="flex items-center gap-3">
                           <Checkbox
                             checked={isDone}
-                            onCheckedChange={() => handleToggleTask(taskKey)}
+                            onCheckedChange={() => handleToggleTask(taskKey, task)}
                             onClick={(e) => e.stopPropagation()}
                             className="mt-0.5"
                           />
@@ -406,6 +489,42 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ChapterCompletionPopup
+        isOpen={showCompletionPopup}
+        chapterName={completedChapter.chapter}
+        subjectName={completedChapter.subject}
+        onClose={() => setShowCompletionPopup(false)}
+        onTakeQuiz={handleTakeQuiz}
+      />
+
+      <QuizImageUpload
+        isOpen={showImageUpload}
+        chapterName={completedChapter.chapter}
+        subjectName={completedChapter.subject}
+        onClose={() => {
+          setShowImageUpload(false);
+          setIsGeneratingQuiz(false);
+        }}
+        onImagesReady={handleImagesReady}
+        isProcessing={isGeneratingQuiz}
+      />
+
+      <QuizTypeSelector
+        isOpen={showTypeSelector}
+        onClose={() => setShowTypeSelector(false)}
+        onSelectType={handleQuizTypeSelect}
+      />
+
+      <QuizDisplay
+        isOpen={showQuiz}
+        quizType={selectedQuizType}
+        mcqQuestions={mcqQuestions}
+        shortLongQuestions={shortLongQuestions}
+        chapterName={completedChapter.chapter}
+        onClose={() => setShowQuiz(false)}
+        onRetake={handleRetakeQuiz}
+      />
     </div>
   );
 };
