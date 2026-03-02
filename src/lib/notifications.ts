@@ -82,17 +82,48 @@ let notificationAudio: HTMLAudioElement | null = null;
 function createAlarmSound(): HTMLAudioElement {
   const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
   const sampleRate = audioContext.sampleRate;
-  const duration = 3;
+  const duration = 8;
   const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
   const data = buffer.getChannelData(0);
 
+  const melody = [
+    { freq: 523.25, start: 0, dur: 0.3 },
+    { freq: 659.25, start: 0.35, dur: 0.3 },
+    { freq: 783.99, start: 0.7, dur: 0.3 },
+    { freq: 659.25, start: 1.05, dur: 0.3 },
+    { freq: 783.99, start: 1.4, dur: 0.5 },
+    { freq: 880.00, start: 2.0, dur: 0.6 },
+    { freq: 783.99, start: 2.7, dur: 0.3 },
+    { freq: 659.25, start: 3.05, dur: 0.3 },
+    { freq: 523.25, start: 3.4, dur: 0.3 },
+    { freq: 659.25, start: 3.75, dur: 0.5 },
+    { freq: 523.25, start: 4.4, dur: 0.8 },
+    { freq: 392.00, start: 5.4, dur: 0.3 },
+    { freq: 440.00, start: 5.75, dur: 0.3 },
+    { freq: 523.25, start: 6.1, dur: 0.3 },
+    { freq: 659.25, start: 6.45, dur: 0.4 },
+    { freq: 523.25, start: 6.95, dur: 0.8 },
+  ];
+
   for (let i = 0; i < buffer.length; i++) {
     const t = i / sampleRate;
-    const freq = 523.25;
-    const fadeIn = Math.min(1, t * 8);
-    const fadeOut = Math.min(1, (duration - t) * 4);
-    const envelope = fadeIn * fadeOut;
-    data[i] = envelope * 0.12 * Math.sin(2 * Math.PI * freq * t);
+    let sample = 0;
+
+    for (const note of melody) {
+      if (t >= note.start && t < note.start + note.dur) {
+        const noteT = t - note.start;
+        const attack = Math.min(1, noteT * 20);
+        const release = Math.min(1, (note.dur - noteT) * 10);
+        const env = attack * release;
+        sample += env * 0.15 * (
+          Math.sin(2 * Math.PI * note.freq * noteT) +
+          0.3 * Math.sin(2 * Math.PI * note.freq * 2 * noteT) * Math.exp(-noteT * 3)
+        );
+      }
+    }
+
+    const masterFade = t > 7 ? (8 - t) : 1;
+    data[i] = sample * masterFade;
   }
 
   const wavBlob = audioBufferToWav(buffer);
