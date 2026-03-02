@@ -59,6 +59,7 @@ const typeConfig = {
 const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, onReminderChange, rewardState }: StudyPlanViewProps) => {
   const [showBreakModal, setShowBreakModal] = useState(false);
   const [showBackModal, setShowBackModal] = useState(false);
+  const [showBackButton, setShowBackButton] = useState(false);
   const [breakSuggestion, setBreakSuggestion] = useState("");
 
   const {
@@ -112,10 +113,16 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     if (breaks > 0) {
       setBreakSuggestion(getRandomReward());
       setShowBreakModal(true);
+      setShowBackButton(true);
     } else {
       setBreakSuggestion("");
       setShowBreakModal(true);
     }
+  };
+
+  const handleBackFromBreak = () => {
+    setShowBackModal(true);
+    setShowBackButton(false);
   };
 
   const getProgressMessage = () => {
@@ -197,14 +204,25 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
                 <Coffee className="w-3 h-3" />
                 <span className="text-xs font-medium">Break</span>
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowBackModal(true)}
-                className="flex items-center gap-1 border-blue-300 text-blue-700 hover:bg-blue-50"
-              >
-                <span className="text-xs font-medium">I'm Back</span>
-              </Button>
+              <AnimatePresence>
+                {showBackButton && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBackFromBreak}
+                      className="flex items-center gap-1 border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                      <span className="text-xs font-medium">I'm Back</span>
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
