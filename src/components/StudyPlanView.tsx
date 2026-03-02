@@ -306,19 +306,8 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
                     <p className="text-gray-600 mb-4">
                       Amazing work! You've completed {rewardState.chaptersCompletedToday} chapters today. You deserve this!
                     </p>
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 mb-4 border border-green-200">
-                      <p className="text-lg font-semibold text-green-700 mb-3">Try one of these:</p>
-                      <div className="text-left space-y-2 text-sm text-gray-700">
-                        <p>🚶‍♀️ Walk around the house, even 2-3 minutes helps</p>
-                        <p>💧 Drink water and stretch your neck, shoulders, and back</p>
-                        <p>🌬️ Deep breathing - inhale 4s, hold 4s, exhale 4s, repeat 5x</p>
-                        <p>🪟 Stand near a window and just look outside</p>
-                        <p>🎵 Listen to one song - just one</p>
-                        <p>🧹 Tidy your desk quickly</p>
-                        <p>🧠 Do 5 jumping jacks or light movement</p>
-                        <p>🍎 Grab a small snack like fruit or nuts</p>
-                        <p>📝 Do a quick brain dump - write what you've understood</p>
-                      </div>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 mb-4 border border-green-200">
+                      <p className="text-lg font-semibold text-green-700">{breakSuggestion}</p>
                     </div>
                     <p className="text-sm text-gray-500 mb-4">
                       {getAvailableBreaks(rewardState.chaptersCompletedToday)} break{getAvailableBreaks(rewardState.chaptersCompletedToday) > 1 ? 's' : ''} available - you're doing great! 🌟

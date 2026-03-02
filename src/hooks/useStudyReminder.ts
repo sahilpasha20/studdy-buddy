@@ -6,6 +6,8 @@ import {
   showStudyNotification,
   isNotificationSupported,
   playNotificationSound,
+  stopNotificationSound,
+  isAlarmActive,
 } from "@/lib/notifications";
 import {
   createReminderWorker,
@@ -30,6 +32,8 @@ export function useStudyReminder() {
     () => localStorage.getItem("study-reminder-sound") !== "false"
   );
 
+  const [alarmActive, setAlarmActive] = useState(false);
+
   const workerInitializedRef = useRef(false);
   const soundEnabledRef = useRef(soundEnabled);
 
@@ -37,7 +41,14 @@ export function useStudyReminder() {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
 
+  const dismissAlarm = useCallback(() => {
+    stopNotificationSound();
+    setAlarmActive(false);
+  }, []);
+
   const triggerReminder = useCallback(() => {
+    setAlarmActive(true);
+
     const notificationShown = showStudyNotification({
       title: "Time to Study!",
       body: "Open your study plan and get started with today's tasks!",
@@ -47,13 +58,6 @@ export function useStudyReminder() {
 
     if (!notificationShown && soundEnabledRef.current) {
       playNotificationSound();
-    }
-
-    if (!notificationShown) {
-      toast("Time to study!", {
-        description: "Open your study plan and get started!",
-        duration: 15000,
-      });
     }
   }, []);
 
@@ -138,9 +142,11 @@ export function useStudyReminder() {
     reminderEnabled,
     notificationPermission,
     soundEnabled,
+    alarmActive,
     enableReminder,
     disableReminder,
     requestPermission,
     toggleSound,
+    dismissAlarm,
   };
 }

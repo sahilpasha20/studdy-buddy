@@ -80,7 +80,7 @@ export interface StudyNotificationOptions {
 let currentAudio: HTMLAudioElement | null = null;
 let isAlarmPlaying = false;
 
-const JOYFUL_MUSIC_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
+const JOYFUL_MUSIC_URL = 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3';
 
 function playJoyfulMusic(): void {
   if (currentAudio) {

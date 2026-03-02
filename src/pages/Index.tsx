@@ -4,6 +4,7 @@ import { GraduationCap, Loader2 } from "lucide-react";
 import UploadForm, { GradeLevel } from "@/components/UploadForm";
 import SubjectPicker, { StudyPace } from "@/components/SubjectPicker";
 import StudyPlanView from "@/components/StudyPlanView";
+import AlarmPopup from "@/components/AlarmPopup";
 import { Subject, generateStudyPlan } from "@/lib/planGenerator";
 import { toast } from "sonner";
 import { useStudyReminder } from "@/hooks/useStudyReminder";
@@ -165,6 +166,11 @@ const Index = () => {
           )}
         </AnimatePresence>
       </div>
+
+      <AlarmPopup
+        isOpen={reminder.alarmActive}
+        onDismiss={reminder.dismissAlarm}
+      />
     </div>
   );
 };
