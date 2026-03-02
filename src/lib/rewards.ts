@@ -35,15 +35,15 @@ const breakMessages = [
 ];
 
 const milestoneRewards = [
-  "🚶‍♀️ Walk around the house, even 2-3 minutes helps",
-  "💧 Drink water and stretch your neck, shoulders, and back",
-  "🌬️ Deep breathing - inhale 4s, hold 4s, exhale 4s, repeat 5x",
-  "🪟 Stand near a window and just look outside",
-  "🎵 Listen to one song - just one",
-  "🧹 Tidy your desk quickly",
-  "🧠 Do 5 jumping jacks or light movement",
-  "🍎 Grab a small snack like fruit or nuts",
-  "📝 Do a quick brain dump - write what you've understood",
+  "Read a short story or a few chapters of a non-academic book.",
+  "Go for a short walk outside without using your phone.",
+  "Listen to a few of your favourite songs.",
+  "Do a short guided yoga or stretching routine.",
+  "Solve a crossword, Sudoku, or logic puzzle.",
+  "Do mindful colouring or sketching.",
+  "Sit somewhere comfortable and have tea or coffee without screens.",
+  "Watch anything (with a strict time limit of 10 minutes).",
+  "Journal about something unrelated to school.",
 ];
 
 export function getRandomEncouragement(): string {
