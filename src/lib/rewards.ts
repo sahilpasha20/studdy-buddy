@@ -81,14 +81,14 @@ export function calculateReward(
     } else if (chaptersToday === MILESTONE_THRESHOLD) {
       totalPoints += MILESTONE_BONUS;
       event = {
-        type: 'break_time',
+        type: 'confetti',
         points: POINTS_PER_CHAPTER + MILESTONE_BONUS,
         message: getRandomBreakMessage(),
         encouragement: `+${POINTS_PER_CHAPTER + MILESTONE_BONUS} points! ${getRandomReward()}`,
       };
     } else {
       event = {
-        type: 'points_earned',
+        type: 'confetti',
         points: POINTS_PER_CHAPTER,
         message: getRandomEncouragement(),
       };

@@ -77,18 +77,26 @@ export interface StudyNotificationOptions {
   playSound?: boolean;
 }
 
-let currentSpeech: SpeechSynthesisUtterance | null = null;
+let alarmInterval: ReturnType<typeof setInterval> | null = null;
+let isAlarmPlaying = false;
 
-function speakMessage(message: string): void {
+const joyfulMessages = [
+  "La la la! Time to study! You're going to do great today!",
+  "Hooray! Study time is here! Let's learn something amazing!",
+  "Yay yay yay! It's learning time! You've got this!",
+  "Tra la la! Books are calling! Time to shine bright!",
+  "Hip hip hooray! Study session starting! You're a star!",
+];
+
+function speakJoyfulMessage(): void {
   if (!('speechSynthesis' in window)) {
     return;
   }
 
-  window.speechSynthesis.cancel();
-
+  const message = joyfulMessages[Math.floor(Math.random() * joyfulMessages.length)];
   const utterance = new SpeechSynthesisUtterance(message);
-  utterance.rate = 0.9;
-  utterance.pitch = 1.1;
+  utterance.rate = 1.1;
+  utterance.pitch = 1.3;
   utterance.volume = 1;
 
   const voices = window.speechSynthesis.getVoices();
@@ -100,23 +108,41 @@ function speakMessage(message: string): void {
     utterance.voice = preferredVoice;
   }
 
-  currentSpeech = utterance;
   window.speechSynthesis.speak(utterance);
 }
 
 export function playNotificationSound(): void {
+  if (isAlarmPlaying) return;
+
   try {
-    speakMessage("It's time to study! Good luck!");
+    isAlarmPlaying = true;
+    speakJoyfulMessage();
+
+    alarmInterval = setInterval(() => {
+      if (isAlarmPlaying) {
+        speakJoyfulMessage();
+      }
+    }, 8000);
   } catch (error) {
     console.error('Error playing notification sound:', error);
   }
 }
 
 export function stopNotificationSound(): void {
+  isAlarmPlaying = false;
+
+  if (alarmInterval) {
+    clearInterval(alarmInterval);
+    alarmInterval = null;
+  }
+
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
-  currentSpeech = null;
+}
+
+export function isAlarmActive(): boolean {
+  return isAlarmPlaying;
 }
 
 export function showStudyNotification(options: StudyNotificationOptions): Notification | null {

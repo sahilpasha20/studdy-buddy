@@ -42,40 +42,52 @@ export function generateStudyPlan(subjects: Subject[], pace: StudyPace): DayPlan
 
   const chaptersPerDay = Math.max(1, Math.floor((pace.hoursPerDay * 60) / pace.minutesPerChapter));
 
-  // Each day gets exactly ONE task (but may have multiple chapters)
-  const daySlots = new Map<string, DayTask>();
+  const daySlots = new Map<string, DayTask[]>();
 
-  // 1) Reserve exam days first (highest priority)
+  const examsByDate = new Map<string, string[]>();
   for (const subject of sorted) {
     const dateStr = format(parseISO(subject.examDate), "yyyy-MM-dd");
-    // If two exams on same day, only first gets shown — but that's rare
-    if (!daySlots.has(dateStr)) {
-      daySlots.set(dateStr, {
-        subject: subject.name,
-        chapters: ["📝 Exam Day"],
-        type: "exam",
-      });
+    if (!examsByDate.has(dateStr)) {
+      examsByDate.set(dateStr, []);
     }
+    examsByDate.get(dateStr)!.push(subject.name);
   }
 
-  // 2) Reserve revision days (4 days before each exam)
+  for (const [dateStr, subjectNames] of examsByDate.entries()) {
+    daySlots.set(dateStr, subjectNames.map(name => ({
+      subject: name,
+      chapters: ["Exam Day"],
+      type: "exam" as const,
+    })));
+  }
+
+  const revisionsByDate = new Map<string, string[]>();
   for (const subject of sorted) {
     const examDate = parseISO(subject.examDate);
     for (let r = 1; r <= REVISION_DAYS; r++) {
       const revDate = addDays(examDate, -r);
       if (differenceInDays(revDate, today) < 0) continue;
       const dateStr = format(revDate, "yyyy-MM-dd");
-      if (!daySlots.has(dateStr)) {
-        daySlots.set(dateStr, {
-          subject: subject.name,
-          chapters: [`Revision Day ${REVISION_DAYS - r + 1} — Review all chapters`],
-          type: "revision",
-        });
+      if (daySlots.has(dateStr)) continue;
+      if (!revisionsByDate.has(dateStr)) {
+        revisionsByDate.set(dateStr, []);
+      }
+      if (!revisionsByDate.get(dateStr)!.includes(subject.name)) {
+        revisionsByDate.get(dateStr)!.push(subject.name);
       }
     }
   }
 
-  // 3) Build study queue: 1 chapter each, ordered by exam urgency
+  for (const [dateStr, subjectNames] of revisionsByDate.entries()) {
+    if (!daySlots.has(dateStr)) {
+      daySlots.set(dateStr, subjectNames.map((name) => ({
+        subject: name,
+        chapters: [`Revision — Review all chapters`],
+        type: "revision" as const,
+      })));
+    }
+  }
+
   const chapterQueue: { subject: string; chapter: string }[] = [];
   for (const subject of sorted) {
     for (const ch of subject.chapters) {
@@ -83,7 +95,6 @@ export function generateStudyPlan(subjects: Subject[], pace: StudyPace): DayPlan
     }
   }
 
-  // 4) Fill remaining open days with chapters based on study hours
   let qi = 0;
   for (let d = 0; d < totalDays && qi < chapterQueue.length; d++) {
     const dateStr = format(addDays(today, d), "yyyy-MM-dd");
@@ -92,20 +103,18 @@ export function generateStudyPlan(subjects: Subject[], pace: StudyPace): DayPlan
     const dayChapters: string[] = [];
     const subjectName = chapterQueue[qi].subject;
     for (let c = 0; c < chaptersPerDay && qi < chapterQueue.length; c++) {
-      // Try to keep same subject per day, but allow mixing if needed
       dayChapters.push(chapterQueue[qi].chapter);
       qi++;
     }
 
-    daySlots.set(dateStr, {
+    daySlots.set(dateStr, [{
       subject: subjectName,
       chapters: dayChapters,
       type: "study",
-    });
+    }]);
   }
 
-  // Convert to sorted array — each day has exactly 1 task
   return Array.from(daySlots.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, task]) => ({ date, tasks: [task] }));
+    .map(([date, tasks]) => ({ date, tasks }));
 }
