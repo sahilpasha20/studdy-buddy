@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ListChecks, PenLine, ArrowLeft, Loader2 } from "lucide-react";
+import { ListChecks, PenLine, ArrowLeft, Loader as Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export type QuizType = "mcq" | "short_long";
