@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, ChevronRight, Award, ArrowLeft, RotateCcw, Eye } from "lucide-react";
+import { Check, X, ChevronRight, Award, ArrowLeft, RotateCcw, Eye, Lightbulb, Target, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { QuizType } from "./QuizTypeSelector";
@@ -106,6 +106,75 @@ const QuizDisplay = ({
     return "📚";
   };
 
+  const getPersonalFeedback = () => {
+    const percentage = (score / totalQuestions) * 100;
+    if (percentage === 100) {
+      return {
+        title: "Perfect Score!",
+        message: "You've demonstrated complete mastery of this chapter. Your hard work and dedication are paying off. You're ready to tackle more advanced topics!",
+        tone: "celebratory",
+      };
+    }
+    if (percentage >= 80) {
+      return {
+        title: "Outstanding Performance!",
+        message: "You have a solid grasp of the key concepts. Just a few minor areas to polish. Review the questions you missed and you'll be at 100% in no time!",
+        tone: "positive",
+      };
+    }
+    if (percentage >= 60) {
+      return {
+        title: "Good Progress!",
+        message: "You understand the fundamentals well. Focus on strengthening the concepts you found tricky. Consider re-reading those sections and taking notes.",
+        tone: "encouraging",
+      };
+    }
+    if (percentage >= 40) {
+      return {
+        title: "Building Foundation",
+        message: "You're making progress! Some concepts need more attention. Try breaking down the chapter into smaller parts and studying each section thoroughly.",
+        tone: "supportive",
+      };
+    }
+    return {
+      title: "Time to Review",
+      message: "This chapter needs more study time, and that's completely okay! Everyone learns at their own pace. Go through the chapter again, make notes, and highlight key points.",
+      tone: "compassionate",
+    };
+  };
+
+  const getImprovementTips = () => {
+    const percentage = (score / totalQuestions) * 100;
+    const tips: string[] = [];
+
+    if (percentage < 100) {
+      tips.push("Review the explanations for questions you got wrong");
+    }
+    if (percentage < 80) {
+      tips.push("Create flashcards for key terms and definitions");
+      tips.push("Try explaining concepts out loud to reinforce understanding");
+    }
+    if (percentage < 60) {
+      tips.push("Break the chapter into smaller sections and study one at a time");
+      tips.push("Use diagrams or mind maps to visualize connections between concepts");
+    }
+    if (percentage < 40) {
+      tips.push("Start with the basics and build up gradually");
+      tips.push("Consider finding video explanations or alternative resources");
+      tips.push("Don't rush - take time to truly understand each concept");
+    }
+
+    return tips.slice(0, 3);
+  };
+
+  const getStrengthAreas = () => {
+    const percentage = (score / totalQuestions) * 100;
+    if (percentage >= 80) return "Excellent comprehension and recall";
+    if (percentage >= 60) return "Good foundational knowledge";
+    if (percentage >= 40) return "Understanding core concepts";
+    return "Willingness to learn and try";
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -144,14 +213,112 @@ const QuizDisplay = ({
                         {score}/{totalQuestions}
                       </span>
                     </div>
-                    <p className="text-gray-600 mb-6">{getScoreMessage()}</p>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 mb-4 border border-blue-200 text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Lightbulb className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-blue-800 mb-1">
+                            {getPersonalFeedback().title}
+                          </p>
+                          <p className="text-sm text-blue-700">
+                            {getPersonalFeedback().message}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="bg-emerald-50 rounded-xl p-4 mb-4 border border-emerald-200 text-left"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Target className="w-4 h-4 text-emerald-600" />
+                        <p className="font-semibold text-emerald-800 text-sm">Your Strength</p>
+                      </div>
+                      <p className="text-sm text-emerald-700">{getStrengthAreas()}</p>
+                    </motion.div>
+
+                    {getImprovementTips().length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="bg-amber-50 rounded-xl p-4 mb-4 border border-amber-200 text-left"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <TrendingUp className="w-4 h-4 text-amber-600" />
+                          <p className="font-semibold text-amber-800 text-sm">Tips to Improve</p>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {getImprovementTips().map((tip, index) => (
+                            <li key={index} className="text-sm text-amber-700 flex items-start gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
+                              {tip}
+                            </li>
+                          ))}
+                        </ul>
+                      </motion.div>
+                    )}
                   </>
                 )}
 
                 {quizType === "short_long" && (
-                  <p className="text-gray-600 mb-6">
-                    Great effort! Review your answers against the sample answers to see how you did.
-                  </p>
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 mb-4 border border-emerald-200 text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Lightbulb className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-emerald-800 mb-1">Great Effort!</p>
+                          <p className="text-sm text-emerald-700">
+                            You've completed all the questions. Compare your answers with the sample answers you viewed to gauge your understanding.
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="bg-blue-50 rounded-xl p-4 mb-4 border border-blue-200 text-left"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="w-4 h-4 text-blue-600" />
+                        <p className="font-semibold text-blue-800 text-sm">How to Self-Evaluate</p>
+                      </div>
+                      <ul className="space-y-1.5">
+                        <li className="text-sm text-blue-700 flex items-start gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
+                          Did you cover the key points in the sample answers?
+                        </li>
+                        <li className="text-sm text-blue-700 flex items-start gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
+                          Were your explanations clear and well-structured?
+                        </li>
+                        <li className="text-sm text-blue-700 flex items-start gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
+                          Note any gaps and review those sections
+                        </li>
+                      </ul>
+                    </motion.div>
+                  </>
                 )}
 
                 <div className="space-y-3">
