@@ -133,7 +133,7 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
 
   const handleTakeQuiz = () => {
     setShowCompletionPopup(false);
-    setShowImageUpload(true);
+    setShowTypeSelector(true);
   };
 
   const handleImagesReady = async (images: File[]) => {
@@ -145,7 +145,6 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     setSelectedQuizType(type);
     setShowTypeSelector(false);
     setIsGeneratingQuiz(true);
-    setShowImageUpload(true);
 
     try {
       const formData = new FormData();
@@ -176,11 +175,9 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
         setShortLongQuestions(data.shortLongQuestions);
       }
 
-      setShowImageUpload(false);
       setShowQuiz(true);
     } catch (error) {
       console.error("Quiz generation error:", error);
-      setShowImageUpload(false);
     } finally {
       setIsGeneratingQuiz(false);
     }
@@ -511,9 +508,10 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
       />
 
       <QuizTypeSelector
-        isOpen={showTypeSelector}
+        isOpen={showTypeSelector || isGeneratingQuiz}
         onClose={() => setShowTypeSelector(false)}
         onSelectType={handleQuizTypeSelect}
+        isLoading={isGeneratingQuiz}
       />
 
       <QuizDisplay
