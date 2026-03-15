@@ -212,6 +212,16 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     setShowBackButton(false);
   };
 
+  const handleFloatingQuiz = () => {
+    const todayPlan = plan.find((day) => isToday(parseISO(day.date)));
+    const source = todayPlan ?? plan[0];
+    const studyTask = source?.tasks.find((t) => t.type === "study" && t.chapters.length > 0);
+    if (studyTask) {
+      setCompletedChapter({ chapter: studyTask.chapters.join(", "), subject: studyTask.subject });
+    }
+    setShowTypeSelector(true);
+  };
+
   const getProgressMessage = () => {
     const { chaptersCompletedToday } = rewardState;
     if (chaptersCompletedToday === 0) return "Start studying to earn points!";
@@ -549,6 +559,16 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
         onClose={() => setShowQuiz(false)}
         onRetake={handleRetakeQuiz}
       />
+
+      <motion.button
+        onClick={handleFloatingQuiz}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-5 py-3 rounded-2xl shadow-lg shadow-blue-600/30 transition-colors"
+      >
+        <BrainCircuit className="w-4 h-4" />
+        Take a Quiz
+      </motion.button>
     </div>
   );
 };
