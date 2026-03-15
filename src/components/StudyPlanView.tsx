@@ -11,7 +11,7 @@ import confetti from "canvas-confetti";
 import { RewardEvent } from "@/lib/rewards";
 import ChapterCompletionPopup from "./ChapterCompletionPopup";
 import QuizImageUpload from "./QuizImageUpload";
-import QuizTypeSelector, { QuizType } from "./QuizTypeSelector";
+import { QuizType } from "./QuizTypeSelector";
 import QuizDisplay, { MCQQuestion, ShortLongQuestion } from "./QuizDisplay";
 
 interface StudyPlanViewProps {
@@ -69,7 +69,6 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
   const [showCompletionPopup, setShowCompletionPopup] = useState(false);
   const [completedChapter, setCompletedChapter] = useState({ chapter: "", subject: "" });
   const [showImageUpload, setShowImageUpload] = useState(false);
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [selectedQuizType, setSelectedQuizType] = useState<QuizType>("mcq");
   const [mcqQuestions, setMcqQuestions] = useState<MCQQuestion[]>([]);
@@ -131,9 +130,9 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     }
   };
 
-  const handleTakeQuiz = () => {
+  const handleUnderstood = () => {
     setShowCompletionPopup(false);
-    setShowTypeSelector(true);
+    setShowImageUpload(true);
   };
 
   const handleQuizFromTask = (e: React.MouseEvent, task: { subject: string; chapters: string[] }) => {
@@ -142,24 +141,19 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
       chapter: task.chapters.join(", "),
       subject: task.subject,
     });
-    setShowTypeSelector(true);
+    setShowImageUpload(true);
   };
 
   const handleImagesReady = async (images: File[]) => {
     setShowImageUpload(false);
-    setShowTypeSelector(true);
-  };
-
-  const handleQuizTypeSelect = async (type: QuizType) => {
-    setSelectedQuizType(type);
-    setShowTypeSelector(false);
     setIsGeneratingQuiz(true);
 
     try {
       const formData = new FormData();
-      formData.append("quizType", type);
+      formData.append("quizType", "mcq");
       formData.append("chapterName", completedChapter.chapter);
       formData.append("subjectName", completedChapter.subject);
+      images.forEach((img, i) => formData.append(`image${i}`, img));
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-quiz`,
@@ -177,11 +171,10 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
       }
 
       const data = await response.json();
+      setSelectedQuizType("mcq");
 
-      if (type === "mcq" && data.mcqQuestions) {
+      if (data.mcqQuestions) {
         setMcqQuestions(data.mcqQuestions);
-      } else if (type === "short_long" && data.shortLongQuestions) {
-        setShortLongQuestions(data.shortLongQuestions);
       }
 
       setShowQuiz(true);
@@ -194,7 +187,7 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
 
   const handleRetakeQuiz = () => {
     setShowQuiz(false);
-    setShowTypeSelector(true);
+    setShowImageUpload(true);
   };
 
   const handleBreakCheck = () => {
@@ -219,7 +212,7 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     if (studyTask) {
       setCompletedChapter({ chapter: studyTask.chapters.join(", "), subject: studyTask.subject });
     }
-    setShowTypeSelector(true);
+    setShowImageUpload(true);
   };
 
   const getProgressMessage = () => {
@@ -528,11 +521,11 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
         chapterName={completedChapter.chapter}
         subjectName={completedChapter.subject}
         onClose={() => setShowCompletionPopup(false)}
-        onTakeQuiz={handleTakeQuiz}
+        onUnderstood={handleUnderstood}
       />
 
       <QuizImageUpload
-        isOpen={showImageUpload}
+        isOpen={showImageUpload || isGeneratingQuiz}
         chapterName={completedChapter.chapter}
         subjectName={completedChapter.subject}
         onClose={() => {
@@ -541,13 +534,6 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
         }}
         onImagesReady={handleImagesReady}
         isProcessing={isGeneratingQuiz}
-      />
-
-      <QuizTypeSelector
-        isOpen={showTypeSelector || isGeneratingQuiz}
-        onClose={() => setShowTypeSelector(false)}
-        onSelectType={handleQuizTypeSelect}
-        isLoading={isGeneratingQuiz}
       />
 
       <QuizDisplay

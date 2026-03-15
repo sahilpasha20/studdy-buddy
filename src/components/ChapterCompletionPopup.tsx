@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { BookCheck, BrainCircuit } from "lucide-react";
+import { BookCheck, CircleCheck as CheckCircle2, Circle as XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ChapterCompletionPopupProps {
@@ -7,7 +7,7 @@ interface ChapterCompletionPopupProps {
   chapterName: string;
   subjectName: string;
   onClose: () => void;
-  onTakeQuiz: () => void;
+  onUnderstood: () => void;
 }
 
 const ChapterCompletionPopup = ({
@@ -15,7 +15,7 @@ const ChapterCompletionPopup = ({
   chapterName,
   subjectName,
   onClose,
-  onTakeQuiz,
+  onUnderstood,
 }: ChapterCompletionPopupProps) => {
   return (
     <AnimatePresence>
@@ -58,7 +58,7 @@ const ChapterCompletionPopup = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="text-gray-600 mb-2"
+                className="text-gray-600 mb-1"
               >
                 Great job finishing{" "}
                 <span className="font-semibold text-gray-800">{chapterName}</span>
@@ -79,11 +79,11 @@ const ChapterCompletionPopup = ({
                 transition={{ delay: 0.5 }}
                 className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 mb-6 border border-blue-200"
               >
-                <p className="text-gray-700 font-medium mb-2">
-                  Have you understood the chapter well?
+                <p className="text-gray-800 font-semibold mb-1">
+                  Did you understand the chapter thoroughly?
                 </p>
                 <p className="text-sm text-gray-500">
-                  Test your knowledge with a quick quiz to reinforce what you've learned!
+                  Upload photos of your chapter and we'll generate 10-15 questions from the actual content.
                 </p>
               </motion.div>
 
@@ -91,22 +91,24 @@ const ChapterCompletionPopup = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6 }}
-                className="space-y-3"
+                className="flex gap-3"
               >
                 <Button
-                  onClick={onTakeQuiz}
-                  className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-5"
+                  variant="outline"
+                  onClick={onClose}
+                  className="flex-1 py-5 border-2 border-gray-200 hover:border-red-300 hover:bg-red-50 text-gray-700 hover:text-red-700 transition-all"
                 >
-                  <BrainCircuit className="w-5 h-5 mr-2" />
-                  Take Quiz!
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Not yet
                 </Button>
 
-                <button
-                  onClick={onClose}
-                  className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
+                <Button
+                  onClick={onUnderstood}
+                  className="flex-1 py-5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold"
                 >
-                  Maybe later
-                </button>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Yes, quiz me!
+                </Button>
               </motion.div>
             </div>
           </motion.div>
