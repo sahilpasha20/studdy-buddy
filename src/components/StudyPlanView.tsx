@@ -2,7 +2,7 @@ import { useState } from "react";
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, RefreshCw, FileText, ArrowLeft, Star, Trophy, Coffee } from "lucide-react";
+import { BookOpen, RefreshCw, FileText, ArrowLeft, Star, Trophy, Coffee, BrainCircuit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NotificationSettings } from "@/components/NotificationSettings";
@@ -136,6 +136,15 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     setShowTypeSelector(true);
   };
 
+  const handleQuizFromTask = (e: React.MouseEvent, task: { subject: string; chapters: string[] }) => {
+    e.stopPropagation();
+    setCompletedChapter({
+      chapter: task.chapters.join(", "),
+      subject: task.subject,
+    });
+    setShowTypeSelector(true);
+  };
+
   const handleImagesReady = async (images: File[]) => {
     setShowImageUpload(false);
     setShowTypeSelector(true);
@@ -192,12 +201,10 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     const breaks = getAvailableBreaks(rewardState.chaptersCompletedToday);
     if (breaks > 0) {
       setBreakSuggestion(getRandomReward());
-      setShowBreakModal(true);
-      setShowBackButton(true);
     } else {
       setBreakSuggestion("");
-      setShowBreakModal(true);
     }
+    setShowBreakModal(true);
   };
 
   const handleBackFromBreak = () => {
@@ -378,6 +385,15 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
                               {task.chapters.join(" · ")}
                             </div>
                           </div>
+                          {task.type === "study" && task.chapters.length > 0 && (
+                            <button
+                              onClick={(e) => handleQuizFromTask(e, task)}
+                              className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg px-2.5 py-1.5 transition-all flex-shrink-0"
+                            >
+                              <BrainCircuit className="w-3.5 h-3.5" />
+                              Quiz
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -435,16 +451,26 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
                 )}
                 <Button
                   className="mt-4 w-full bg-green-600 hover:bg-green-700"
-                  onClick={() => setShowBreakModal(false)}
+                  onClick={() => {
+                    setShowBreakModal(false);
+                    if (breakSuggestion) {
+                      setShowBackButton(true);
+                    }
+                  }}
                 >
                   {breakSuggestion ? "Thanks, I'll take my break! ☕" : "Back to Studying 📚"}
                 </Button>
-                <button
-                  className="mt-2 w-full text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
-                  onClick={() => setShowBreakModal(false)}
-                >
-                  Dismiss
-                </button>
+                {breakSuggestion && (
+                  <button
+                    className="mt-2 w-full text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
+                    onClick={() => {
+                      setShowBreakModal(false);
+                      setShowBackButton(false);
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                )}
               </div>
             </motion.div>
           </motion.div>
