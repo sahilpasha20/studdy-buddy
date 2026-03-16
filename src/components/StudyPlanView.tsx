@@ -2,7 +2,7 @@ import { useState } from "react";
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, RefreshCw, FileText, ArrowLeft, Star, Trophy, Coffee, BookMarked, X } from "lucide-react";
+import { BookOpen, RefreshCw, FileText, ArrowLeft, Star, Trophy, Coffee, BookMarked, X, PartyPopper, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NotificationSettings } from "@/components/NotificationSettings";
@@ -78,6 +78,9 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [showQuizPrompt, setShowQuizPrompt] = useState(false);
   const [quizPromptChapter, setQuizPromptChapter] = useState({ chapter: "", subject: "" });
+  const [showExamCompletionPopup, setShowExamCompletionPopup] = useState(false);
+  const [isLastExam, setIsLastExam] = useState(false);
+  const [completedExamSubject, setCompletedExamSubject] = useState("");
 
   const {
     reminderTime,
@@ -131,6 +134,27 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
         subject: task.subject,
       });
       setShowQuizPrompt(true);
+    }
+
+    if (!wasChecked && task && task.type === "exam") {
+      const allExamTasks = plan.flatMap((day, dayIdx) =>
+        day.tasks
+          .map((t, taskIdx) => ({ task: t, key: `${day.date}-${taskIdx}` }))
+          .filter((item) => item.task.type === "exam")
+      );
+      const completedExamsAfterThis = allExamTasks.filter(
+        (item) => checkedTasks.has(item.key) || item.key === taskKey
+      ).length;
+      const totalExams = allExamTasks.length;
+      const isLast = completedExamsAfterThis === totalExams;
+
+      setCompletedExamSubject(task.subject);
+      setIsLastExam(isLast);
+      setShowExamCompletionPopup(true);
+
+      if (isLast) {
+        triggerConfetti();
+      }
     }
   };
 
@@ -539,6 +563,102 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
                 >
                   Let's Do This! 💪
                 </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showExamCompletionPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowExamCompletionPopup(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", damping: 15 }}
+                  className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                    isLastExam
+                      ? "bg-gradient-to-br from-amber-100 to-yellow-100"
+                      : "bg-gradient-to-br from-emerald-100 to-teal-100"
+                  }`}
+                >
+                  {isLastExam ? (
+                    <Award className="w-10 h-10 text-amber-600" />
+                  ) : (
+                    <PartyPopper className="w-10 h-10 text-emerald-600" />
+                  )}
+                </motion.div>
+
+                <motion.h3
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-2xl font-bold text-gray-900 mb-2"
+                >
+                  Congratulations!
+                </motion.h3>
+
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-lg text-gray-700 mb-2"
+                >
+                  {isLastExam ? "You got through it all!" : "One more exam done!"}
+                </motion.p>
+
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                  className="text-sm text-gray-500 mb-6"
+                >
+                  {completedExamSubject}
+                </motion.p>
+
+                {isLastExam && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl p-4 mb-6 border border-amber-200"
+                  >
+                    <p className="text-amber-800 font-medium">
+                      You've completed all your exams! Time to celebrate your hard work and dedication.
+                    </p>
+                  </motion.div>
+                )}
+
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <Button
+                    onClick={() => setShowExamCompletionPopup(false)}
+                    className={`w-full py-5 font-semibold ${
+                      isLastExam
+                        ? "bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600"
+                        : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                    }`}
+                  >
+                    {isLastExam ? "Thank you!" : "Keep Going!"}
+                  </Button>
+                </motion.div>
               </div>
             </motion.div>
           </motion.div>
