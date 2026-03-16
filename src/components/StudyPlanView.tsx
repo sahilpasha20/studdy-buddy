@@ -11,7 +11,7 @@ import confetti from "canvas-confetti";
 import { RewardEvent } from "@/lib/rewards";
 import ChapterCompletionPopup from "./ChapterCompletionPopup";
 import QuizImageUpload from "./QuizImageUpload";
-import { QuizType } from "./QuizTypeSelector";
+import QuizTypeSelector, { QuizType, QuizDifficulty } from "./QuizTypeSelector";
 import QuizDisplay, { MCQQuestion, ShortLongQuestion } from "./QuizDisplay";
 
 interface StudyPlanViewProps {
@@ -69,11 +69,13 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
   const [showCompletionPopup, setShowCompletionPopup] = useState(false);
   const [completedChapter, setCompletedChapter] = useState({ chapter: "", subject: "" });
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [selectedQuizType, setSelectedQuizType] = useState<QuizType>("mcq");
   const [mcqQuestions, setMcqQuestions] = useState<MCQQuestion[]>([]);
   const [shortLongQuestions, setShortLongQuestions] = useState<ShortLongQuestion[]>([]);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
 
   const {
     reminderTime,
@@ -144,23 +146,30 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     setShowImageUpload(true);
   };
 
-  const handleImagesReady = async (images: File[]) => {
+  const handleImagesReady = (images: File[]) => {
+    setUploadedImages(images);
     setShowImageUpload(false);
+    setShowTypeSelector(true);
+  };
+
+  const handleQuizOptionsSelect = async (type: QuizType, difficulty: QuizDifficulty) => {
+    setSelectedQuizType(type);
     setIsGeneratingQuiz(true);
 
     try {
       const formData = new FormData();
-      formData.append("quizType", "mcq");
+      formData.append("quizType", type);
+      formData.append("difficulty", difficulty);
       formData.append("chapterName", completedChapter.chapter);
       formData.append("subjectName", completedChapter.subject);
-      images.forEach((img, i) => formData.append(`image${i}`, img));
+      uploadedImages.forEach((img, i) => formData.append(`image${i}`, img));
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-quiz`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: formData,
         }
@@ -171,12 +180,14 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
       }
 
       const data = await response.json();
-      setSelectedQuizType("mcq");
 
-      if (data.mcqQuestions) {
+      if (type === "mcq" && data.mcqQuestions) {
         setMcqQuestions(data.mcqQuestions);
+      } else if (type === "short_long" && data.shortLongQuestions) {
+        setShortLongQuestions(data.shortLongQuestions);
       }
 
+      setShowTypeSelector(false);
       setShowQuiz(true);
     } catch (error) {
       console.error("Quiz generation error:", error);
@@ -525,15 +536,22 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
       />
 
       <QuizImageUpload
-        isOpen={showImageUpload || isGeneratingQuiz}
+        isOpen={showImageUpload}
         chapterName={completedChapter.chapter}
         subjectName={completedChapter.subject}
-        onClose={() => {
-          setShowImageUpload(false);
-          setIsGeneratingQuiz(false);
-        }}
+        onClose={() => setShowImageUpload(false)}
         onImagesReady={handleImagesReady}
-        isProcessing={isGeneratingQuiz}
+        isProcessing={false}
+      />
+
+      <QuizTypeSelector
+        isOpen={showTypeSelector}
+        onClose={() => {
+          setShowTypeSelector(false);
+          setUploadedImages([]);
+        }}
+        onSelectOptions={handleQuizOptionsSelect}
+        isLoading={isGeneratingQuiz}
       />
 
       <QuizDisplay
@@ -550,10 +568,10 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
         onClick={handleFloatingQuiz}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-5 py-3 rounded-2xl shadow-lg shadow-blue-600/30 transition-colors"
+        className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg shadow-blue-600/30 transition-colors"
+        title="Take a Quiz"
       >
-        <BrainCircuit className="w-4 h-4" />
-        Take a Quiz
+        <BrainCircuit className="w-5 h-5" />
       </motion.button>
     </div>
   );
