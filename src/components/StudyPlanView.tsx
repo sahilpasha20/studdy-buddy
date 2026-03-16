@@ -2,7 +2,7 @@ import { useState } from "react";
 import { DayPlan } from "@/lib/planGenerator";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, RefreshCw, FileText, ArrowLeft, Star, Trophy, Coffee, BrainCircuit } from "lucide-react";
+import { BookOpen, RefreshCw, FileText, ArrowLeft, Star, Trophy, Coffee, BookMarked, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NotificationSettings } from "@/components/NotificationSettings";
@@ -76,6 +76,8 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
   const [shortLongQuestions, setShortLongQuestions] = useState<ShortLongQuestion[]>([]);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [showQuizPrompt, setShowQuizPrompt] = useState(false);
+  const [quizPromptChapter, setQuizPromptChapter] = useState({ chapter: "", subject: "" });
 
   const {
     reminderTime,
@@ -124,17 +126,27 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
     }
 
     if (!wasChecked && task && task.type === "study" && task.chapters.length > 0) {
-      setCompletedChapter({
+      setQuizPromptChapter({
         chapter: task.chapters.join(", "),
         subject: task.subject,
       });
-      setShowCompletionPopup(true);
+      setShowQuizPrompt(true);
     }
   };
 
   const handleUnderstood = () => {
     setShowCompletionPopup(false);
     setShowImageUpload(true);
+  };
+
+  const handleQuizPromptClick = () => {
+    setShowQuizPrompt(false);
+    setCompletedChapter(quizPromptChapter);
+    setShowImageUpload(true);
+  };
+
+  const handleDismissQuizPrompt = () => {
+    setShowQuizPrompt(false);
   };
 
   const handleQuizFromTask = (e: React.MouseEvent, task: { subject: string; chapters: string[] }) => {
@@ -175,24 +187,30 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to generate quiz");
-      }
-
       const data = await response.json();
 
-      if (type === "mcq" && data.mcqQuestions) {
-        setMcqQuestions(data.mcqQuestions);
-      } else if (type === "short_long" && data.shortLongQuestions) {
-        setShortLongQuestions(data.shortLongQuestions);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate quiz");
       }
 
-      setShowTypeSelector(false);
-      setShowQuiz(true);
+      if (type === "mcq" && data.mcqQuestions && data.mcqQuestions.length > 0) {
+        setMcqQuestions(data.mcqQuestions);
+        setShowTypeSelector(false);
+        setShowQuiz(true);
+      } else if (type === "short_long" && data.shortLongQuestions && data.shortLongQuestions.length > 0) {
+        setShortLongQuestions(data.shortLongQuestions);
+        setShowTypeSelector(false);
+        setShowQuiz(true);
+      } else {
+        throw new Error("No questions were generated. Please try again with clearer images.");
+      }
     } catch (error) {
       console.error("Quiz generation error:", error);
+      setShowTypeSelector(false);
+      alert(error instanceof Error ? error.message : "Failed to generate quiz. Please try again.");
     } finally {
       setIsGeneratingQuiz(false);
+      setUploadedImages([]);
     }
   };
 
@@ -404,7 +422,7 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
                               onClick={(e) => handleQuizFromTask(e, task)}
                               className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg px-2.5 py-1.5 transition-all flex-shrink-0"
                             >
-                              <BrainCircuit className="w-3.5 h-3.5" />
+                              <BookMarked className="w-3.5 h-3.5" />
                               Quiz
                             </button>
                           )}
@@ -564,15 +582,54 @@ const StudyPlanView = ({ plan, onReset, reminder, checkedTasks, onToggleTask, on
         onRetake={handleRetakeQuiz}
       />
 
-      <motion.button
-        onClick={handleFloatingQuiz}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg shadow-blue-600/30 transition-colors"
-        title="Take a Quiz"
-      >
-        <BrainCircuit className="w-5 h-5" />
-      </motion.button>
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+        <AnimatePresence>
+          {showQuizPrompt && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              className="relative bg-white rounded-2xl shadow-xl border border-gray-100 p-4 max-w-[280px]"
+            >
+              <button
+                onClick={handleDismissQuizPrompt}
+                className="absolute -top-2 -right-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-500 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <BookMarked className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 mb-1">
+                    Have you really understood the chapter well?
+                  </p>
+                  <button
+                    onClick={handleQuizPromptClick}
+                    className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Take a quiz!
+                  </button>
+                </div>
+              </div>
+              <div className="absolute bottom-0 right-6 translate-y-full">
+                <div className="w-3 h-3 bg-white border-r border-b border-gray-100 rotate-45 -translate-y-1.5" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          onClick={handleFloatingQuiz}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg shadow-blue-600/30 transition-colors"
+          title="Take a Quiz"
+        >
+          <BookMarked className="w-5 h-5" />
+        </motion.button>
+      </div>
     </div>
   );
 };
